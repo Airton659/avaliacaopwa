@@ -1,0 +1,29 @@
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "sad-edi",
+          "configurations": {
+            "web": "1:1090542270932:web:349fdb3fffd8a4b6af7e41"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "site": "avaliacao-itaurb",
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

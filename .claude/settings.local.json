@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter create:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(flutter run:*)",
+      "Bash(flutter clean:*)",
+      "Bash(move lib\\\\services\\\\pdf_service_temp.dart lib\\\\services\\\\pdf_service.dart)",
+      "Bash(firebase deploy:*)",
+      "Bash(flutter build:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

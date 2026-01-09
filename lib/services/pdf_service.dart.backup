@@ -1,0 +1,366 @@
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets' as pw;
+import 'package:printing/printing.dart';
+import '../models/evaluation.dart';
+import '../models/evaluation_type.dart';
+
+class PdfService {
+  Future<void> generateAndPrintPdf(
+    List<Evaluation> evaluations,
+    EvaluationType reportType,
+  ) async {
+    final pdf = pw.Document();
+
+    // Agrupa avaliações por funcionário
+    final groupedEvaluations = <String, List<Evaluation>>{};
+    for (final eval in evaluations) {
+      final employeeName = eval.employeeSnapshot.nome;
+      groupedEvaluations.putIfAbsent(employeeName, () => []).add(eval);
+    }
+
+    for (final entry in groupedEvaluations.entries) {
+      final employeeEvals = entry.value;
+      final snapshot = employeeEvals.first.employeeSnapshot;
+
+      switch (reportType) {
+        case EvaluationType.autoOperacional:
+        case EvaluationType.autoGerencial:
+          pdf.addPage(_buildAutoavaliacaoPage(employeeEvals, snapshot));
+          break;
+        case EvaluationType.gestorOperacional:
+        case EvaluationType.gestorGerencial:
+          pdf.addPage(_buildAvaliacaoGestorPage(employeeEvals, snapshot));
+          break;
+        case EvaluationType.finalOperacional:
+        case EvaluationType.finalGerencial:
+          pdf.addPage(_buildRelatorioFinalPage(employeeEvals, snapshot));
+          break;
+      }
+    }
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+    );
+  }
+
+  pw.Page _buildAutoavaliacaoPage(
+    List<Evaluation> evaluations,
+    dynamic snapshot,
+  ) {
+    final autoEval = evaluations.firstWhere(
+      (e) =>
+          e.type == EvaluationType.autoOperacional ||
+          e.type == EvaluationType.autoGerencial,
+      orElse: () => evaluations.first,
+    );
+
+    return pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (context) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _buildHeader(snapshot, autoEval.type.label),
+          pw.SizedBox(height: 20),
+          pw.Text(
+            'AUTOAVALIAÇÃO',
+            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 10),
+          ...autoEval.answers.entries.map(
+            (answer) => pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 4),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Expanded(
+                    child: pw.Text('Questão ${answer.key}:'),
+                  ),
+                  pw.Text(
+                    'Nota: ${answer.value}',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (autoEval.obs != null && autoEval.obs!.isNotEmpty) ...[
+            pw.SizedBox(height: 20),
+            pw.Text(
+              'Observações:',
+              style:
+                  pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 5),
+            pw.Text(autoEval.obs!),
+          ],
+          pw.Spacer(),
+          pw.Text(
+            'Média: ${autoEval.average.toStringAsFixed(2)}',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Page _buildAvaliacaoGestorPage(
+    List<Evaluation> evaluations,
+    dynamic snapshot,
+  ) {
+    final gestorEval = evaluations.firstWhere(
+      (e) =>
+          e.type == EvaluationType.gestorOperacional ||
+          e.type == EvaluationType.gestorGerencial,
+      orElse: () => evaluations.first,
+    );
+
+    return pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (context) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _buildHeader(snapshot, gestorEval.type.label),
+          pw.SizedBox(height: 20),
+          pw.Text(
+            'AVALIAÇÃO DO GESTOR',
+            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 10),
+          ...gestorEval.answers.entries.map(
+            (answer) => pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 4),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Expanded(
+                    child: pw.Text('Questão ${answer.key}:'),
+                  ),
+                  pw.Text(
+                    'Nota: ${answer.value}',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (gestorEval.obs != null && gestorEval.obs!.isNotEmpty) ...[
+            pw.SizedBox(height: 20),
+            pw.Text(
+              'Observações:',
+              style:
+                  pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.SizedBox(height: 5),
+            pw.Text(gestorEval.obs!),
+          ],
+          pw.Spacer(),
+          pw.Text(
+            'Média: ${gestorEval.average.toStringAsFixed(2)}',
+            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Page _buildRelatorioFinalPage(
+    List<Evaluation> evaluations,
+    dynamic snapshot,
+  ) {
+    final autoEval = evaluations.firstWhere(
+      (e) =>
+          e.type == EvaluationType.autoOperacional ||
+          e.type == EvaluationType.autoGerencial,
+      orElse: () => evaluations.first,
+    );
+
+    final gestorEval = evaluations.firstWhere(
+      (e) =>
+          e.type == EvaluationType.gestorOperacional ||
+          e.type == EvaluationType.gestorGerencial,
+      orElse: () => evaluations.first,
+    );
+
+    final isGerencial = autoEval.type == EvaluationType.autoGerencial;
+
+    return pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (context) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _buildHeader(
+            snapshot,
+            isGerencial
+                ? 'Anexo VI - Relatório Final (Gerencial)'
+                : 'Anexo III - Relatório Final (Operacional)',
+          ),
+          pw.SizedBox(height: 20),
+          pw.Text(
+            'RELATÓRIO FINAL - CONSOLIDADO',
+            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 20),
+          _buildComparisonTable(autoEval, gestorEval),
+          pw.Spacer(),
+          pw.Divider(),
+          pw.SizedBox(height: 10),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Média Autoavaliação:',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(autoEval.average.toStringAsFixed(2)),
+            ],
+          ),
+          pw.SizedBox(height: 5),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Média Avaliação Gestor:',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(gestorEval.average.toStringAsFixed(2)),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+          pw.Divider(),
+          pw.SizedBox(height: 10),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'MÉDIA FINAL:',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.Text(
+                ((autoEval.average + gestorEval.average) / 2)
+                    .toStringAsFixed(2),
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildHeader(dynamic snapshot, String title) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'EMPRESA DE DESENVOLVIMENTO DE ITABIRA',
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 5),
+        pw.Text(
+          title,
+          style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.Divider(),
+        pw.SizedBox(height: 10),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text('Nome: ${snapshot.nome}'),
+            pw.Text('Admissão: ${snapshot.admissao}'),
+          ],
+        ),
+        pw.SizedBox(height: 5),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text('Função: ${snapshot.funcao}'),
+            pw.Text('Nível: ${snapshot.nivel}'),
+          ],
+        ),
+        pw.SizedBox(height: 5),
+        pw.Text('Faixa: ${snapshot.faixa}'),
+        pw.Divider(),
+      ],
+    );
+  }
+
+  pw.Widget _buildComparisonTable(
+    Evaluation autoEval,
+    Evaluation gestorEval,
+  ) {
+    final allKeys = {...autoEval.answers.keys, ...gestorEval.answers.keys}
+        .toList()
+      ..sort();
+
+    return pw.Table(
+      border: pw.TableBorder.all(),
+      children: [
+        pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                'Questão',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                'Autoavaliação',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                'Gestor',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                'Média',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        ...allKeys.map((key) {
+          final autoNota = autoEval.answers[key] ?? 0;
+          final gestorNota = gestorEval.answers[key] ?? 0;
+          final media = (autoNota + gestorNota) / 2;
+
+          return pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(key),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(autoNota.toString()),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(gestorNota.toString()),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(media.toStringAsFixed(1)),
+              ),
+            ],
+          );
+        }),
+      ],
+    );
+  }
+}
