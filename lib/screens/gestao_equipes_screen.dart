@@ -10,12 +10,25 @@ class GestaoEquipesScreen extends StatefulWidget {
 
 class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isMobile = size.width < 800;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestão de Equipes'),
+        title: const Text(
+          'Gestão de Equipes',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.blue.shade700,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -45,6 +58,65 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
             return data['isManager'] == true;
           }).toList();
 
+          // Layout responsivo: coluna única em mobile, duas colunas em tablet/desktop
+          if (isMobile) {
+            return DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  TabBar(
+                    labelColor: Colors.blue.shade700,
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: Colors.blue.shade700,
+                    tabs: const [
+                      Tab(
+                        icon: Icon(Icons.person_outline),
+                        text: 'Sem Gestor',
+                      ),
+                      Tab(
+                        icon: Icon(Icons.supervisor_account),
+                        text: 'Gestores',
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        // Tab 1: Funcionários sem gestor
+                        Container(
+                          color: Colors.grey.shade100,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(8),
+                            itemCount: semGestor.length,
+                            itemBuilder: (context, index) {
+                              final doc = semGestor[index];
+                              final data = doc.data() as Map<String, dynamic>;
+                              return _buildFuncionarioCard(doc.id, data);
+                            },
+                          ),
+                        ),
+                        // Tab 2: Gestores e equipes
+                        Container(
+                          color: Colors.white,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(8),
+                            itemCount: gestores.length,
+                            itemBuilder: (context, index) {
+                              final doc = gestores[index];
+                              final data = doc.data() as Map<String, dynamic>;
+                              return _buildGestorBox(doc.id, data, employees);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Layout para tablet/desktop: duas colunas lado a lado
           return Row(
             children: [
               // COLUNA ESQUERDA: Funcionários sem gestor
@@ -180,22 +252,31 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
       margin: const EdgeInsets.symmetric(vertical: 4),
       elevation: 2,
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         leading: CircleAvatar(
+          radius: 24,
           backgroundColor: isGestor ? Colors.blue : Colors.grey,
           child: Icon(
             isGestor ? Icons.supervisor_account : Icons.person,
             color: Colors.white,
+            size: 28,
           ),
         ),
         title: Text(
           data['nome'] ?? '',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
         ),
-        subtitle: Text(data['funcao'] ?? ''),
+        subtitle: Text(
+          data['funcao'] ?? '',
+          style: const TextStyle(fontSize: 14),
+        ),
         trailing: isGestor
             ? null
             : IconButton(
-                icon: const Icon(Icons.workspace_premium, color: Colors.amber),
+                icon: const Icon(Icons.workspace_premium, color: Colors.amber, size: 28),
                 tooltip: 'Promover a Gestor',
                 onPressed: () => _promoverGestor(data['chapa']),
               ),
@@ -230,52 +311,61 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Cabeçalho do Gestor
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade700,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(4),
-                  ),
+              InkWell(
+                onTap: () => _abrirModalEdicaoEquipe(
+                  gestorChapa,
+                  gestorData,
+                  allEmployees,
                 ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.supervisor_account,
-                      color: Colors.white,
-                      size: 32,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade700,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(4),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            gestorData['nome'] ?? '',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            gestorData['funcao'] ?? '',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.supervisor_account,
+                        color: Colors.white,
+                        size: 32,
                       ),
-                    ),
-                    if (subordinados.isEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.white),
-                        tooltip: 'Rebaixar Gestor',
-                        onPressed: () => _rebaixarGestor(gestorChapa),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              gestorData['nome'] ?? '',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              gestorData['funcao'] ?? '',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                  ],
+                      const Icon(Icons.edit, color: Colors.white, size: 24),
+                      const SizedBox(width: 8),
+                      if (subordinados.isEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.white),
+                          tooltip: 'Rebaixar Gestor',
+                          onPressed: () => _rebaixarGestor(gestorChapa),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               // Lista de Subordinados
@@ -298,11 +388,18 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                         children: subordinados.map((doc) {
                           final data = doc.data() as Map<String, dynamic>;
                           return ListTile(
-                            leading: const Icon(Icons.person_outline),
-                            title: Text(data['nome'] ?? ''),
-                            subtitle: Text(data['funcao'] ?? ''),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            leading: const Icon(Icons.person_outline, size: 28),
+                            title: Text(
+                              data['nome'] ?? '',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                            ),
+                            subtitle: Text(
+                              data['funcao'] ?? '',
+                              style: const TextStyle(fontSize: 14),
+                            ),
                             trailing: IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.red),
+                              icon: const Icon(Icons.clear, color: Colors.red, size: 28),
                               tooltip: 'Remover da equipe',
                               onPressed: () => _removerSubordinado(doc.id),
                             ),
@@ -315,6 +412,286 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
         );
       },
     );
+  }
+
+  Future<void> _abrirModalEdicaoEquipe(
+    String gestorChapa,
+    Map<String, dynamic> gestorData,
+    List<QueryDocumentSnapshot> allEmployees,
+  ) async {
+    // Funcionários não-gestores
+    final funcionarios = allEmployees.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return data['isManager'] != true;
+    }).toList();
+
+    // IDs dos subordinados atuais
+    final subordinadosAtuais = allEmployees
+        .where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['managerId'] == gestorChapa;
+        })
+        .map((doc) => doc.id)
+        .toSet();
+
+    // Set para controlar seleções
+    final selecionados = Set<String>.from(subordinadosAtuais);
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          String filtro = '';
+
+          final funcionariosFiltrados = funcionarios.where((doc) {
+            if (filtro.isEmpty) return true;
+            final data = doc.data() as Map<String, dynamic>;
+            final nome = (data['nome'] ?? '').toString().toLowerCase();
+            final funcao = (data['funcao'] ?? '').toString().toLowerCase();
+            final busca = filtro.toLowerCase();
+            return nome.contains(busca) || funcao.contains(busca);
+          }).toList();
+
+          return Dialog(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+              child: Column(
+                children: [
+                  // Cabeçalho
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade700,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(4),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.supervisor_account,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Editar Equipe',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    gestorData['nome'] ?? '',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.white),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // Campo de busca
+                        TextField(
+                          onChanged: (value) {
+                            setModalState(() {
+                              filtro = value;
+                            });
+                          },
+                          style: const TextStyle(fontSize: 16),
+                          decoration: InputDecoration(
+                            hintText: 'Buscar funcionário...',
+                            hintStyle: const TextStyle(fontSize: 16),
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Lista de funcionários
+                  Expanded(
+                    child: funcionariosFiltrados.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Nenhum funcionário encontrado',
+                              style: TextStyle(fontSize: 16, color: Colors.grey),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(8),
+                            itemCount: funcionariosFiltrados.length,
+                            itemBuilder: (context, index) {
+                              final doc = funcionariosFiltrados[index];
+                              final data = doc.data() as Map<String, dynamic>;
+                              final chapa = doc.id;
+                              final isSelected = selecionados.contains(chapa);
+
+                              return CheckboxListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                secondary: CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Colors.grey,
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
+                                ),
+                                title: Text(
+                                  data['nome'] ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  data['funcao'] ?? '',
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                value: isSelected,
+                                onChanged: (bool? value) {
+                                  setModalState(() {
+                                    if (value == true) {
+                                      selecionados.add(chapa);
+                                    } else {
+                                      selecionados.remove(chapa);
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                  // Rodapé com botões
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade300),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${selecionados.length} selecionado(s)',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text(
+                                'Cancelar',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () async {
+                                await _salvarEquipe(
+                                  gestorChapa,
+                                  subordinadosAtuais,
+                                  selecionados,
+                                );
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue.shade700,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text(
+                                'Salvar',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _salvarEquipe(
+    String gestorChapa,
+    Set<String> subordinadosAntigos,
+    Set<String> subordinadosNovos,
+  ) async {
+    try {
+      // Remover os que foram desmarcados
+      final removidos = subordinadosAntigos.difference(subordinadosNovos);
+      for (final chapa in removidos) {
+        await _firestore.collection('employees').doc(chapa).update({
+          'managerId': null,
+        });
+      }
+
+      // Adicionar os que foram marcados
+      final adicionados = subordinadosNovos.difference(subordinadosAntigos);
+      for (final chapa in adicionados) {
+        await _firestore.collection('employees').doc(chapa).update({
+          'managerId': gestorChapa,
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Equipe atualizada com sucesso',
+              style: TextStyle(fontSize: 16),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _promoverGestor(String chapa) async {

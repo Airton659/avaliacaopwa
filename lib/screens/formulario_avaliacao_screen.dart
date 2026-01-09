@@ -103,6 +103,68 @@ class _FormularioAvaliacaoScreenState
     }
   }
 
+  Future<void> _confirmarLimpeza() async {
+    if (_respostas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não há respostas para limpar.',
+            style: TextStyle(fontSize: 16),
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Limpar Respostas?',
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Você tem certeza que deseja limpar todas as ${_respostas.length} respostas?\n\nEsta ação não pode ser desfeita.',
+          style: const TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar', style: TextStyle(fontSize: 16)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Limpar Tudo', style: TextStyle(fontSize: 16)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true) {
+      setState(() {
+        _respostas.clear();
+        _obsController.clear();
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Todas as respostas foram limpas.',
+              style: TextStyle(fontSize: 16),
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
   // Perguntas padrão (fallback) - operacional
   final List<Map<String, dynamic>> _questoesPadraoOperacionais = [
     {
@@ -268,6 +330,15 @@ class _FormularioAvaliacaoScreenState
             style: const TextStyle(fontSize: 20),
           ),
           backgroundColor: widget.isAutoavaliacao ? Colors.blue : Colors.purple,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.clear_all, size: 28),
+              tooltip: 'Limpar todas as respostas',
+              onPressed: () {
+                _confirmarLimpeza();
+              },
+            ),
+          ],
         ),
         body: _isLoading
             ? const Center(
