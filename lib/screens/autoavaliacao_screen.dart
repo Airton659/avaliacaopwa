@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'formulario_avaliacao_screen.dart';
+import '../utils/situacao_helper.dart';
 
 class AutoavaliacaoScreen extends StatefulWidget {
   const AutoavaliacaoScreen({super.key});
@@ -13,6 +14,7 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _filtroSituacao;
 
   @override
   Widget build(BuildContext context) {
@@ -81,14 +83,33 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                   return data['ativo'] == true;
                 }).toList();
 
+                // Coletar situações únicas dos funcionários ativos
+                final situacoesDisponiveis = <String>{};
+                for (var doc in employees) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final situacao = data['situacao']?.toString() ?? '';
+                  if (situacao.isNotEmpty) {
+                    situacoesDisponiveis.add(situacao.toUpperCase());
+                  }
+                }
+
                 // Filtro de busca
                 if (_searchQuery.isNotEmpty) {
                   employees = employees.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
-                    final nome = (data['nome'] ?? '').toLowerCase();
-                    final chapa = (data['chapa'] ?? '').toLowerCase();
+                    final nome = (data['nome']?.toString() ?? '').toLowerCase();
+                    final chapa = (data['chapa']?.toString() ?? '').toLowerCase();
                     return nome.contains(_searchQuery) ||
                         chapa.contains(_searchQuery);
+                  }).toList();
+                }
+
+                // Filtro por situação
+                if (_filtroSituacao != null) {
+                  employees = employees.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final situacao = data['situacao']?.toString() ?? '';
+                    return situacao.toUpperCase() == _filtroSituacao;
                   }).toList();
                 }
 
@@ -114,16 +135,55 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: employees.length,
-                  itemBuilder: (context, index) {
-                    final doc = employees[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    final chapa = doc.id;
+                return Column(
+                  children: [
+                    // Dropdown de filtro dinâmico
+                    if (situacoesDisponiveis.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: DropdownButtonFormField<String>(
+                          value: _filtroSituacao,
+                          decoration: const InputDecoration(
+                            labelText: 'Filtrar por Situação',
+                            labelStyle: TextStyle(fontSize: 18),
+                            prefixIcon: Icon(Icons.filter_list, size: 32),
+                            border: OutlineInputBorder(),
+                          ),
+                          style: const TextStyle(fontSize: 18, color: Colors.black),
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('Todas'),
+                            ),
+                            ...situacoesDisponiveis.map((situacao) {
+                              final descricao = SituacaoHelper.situacoes[situacao] ?? situacao;
+                              return DropdownMenuItem<String>(
+                                value: situacao,
+                                child: Text('$situacao - $descricao'),
+                              );
+                            }).toList()..sort((a, b) => a.value!.compareTo(b.value!)),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _filtroSituacao = value;
+                            });
+                          },
+                        ),
+                      ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: employees.length,
+                        itemBuilder: (context, index) {
+                          final doc = employees[index];
+                          final data = doc.data() as Map<String, dynamic>;
+                          final chapa = doc.id;
 
-                    return _buildEmployeeCard(chapa, data);
-                  },
+                          return _buildEmployeeCard(chapa, data);
+                        },
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -134,9 +194,10 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
   }
 
   Widget _buildEmployeeCard(String chapa, Map<String, dynamic> data) {
-    final nome = data['nome'] ?? '';
-    final funcao = data['funcao'] ?? '';
-    final nivel = data['nivel'] ?? '';
+    final nome = data['nome']?.toString() ?? '';
+    final funcao = data['funcao']?.toString() ?? '';
+    final nivel = data['nivel']?.toString() ?? '';
+    final situacao = SituacaoHelper.getDescricaoCompleta(data['situacao']?.toString());
     final isManager = data['isManager'] ?? false;
 
     return FutureBuilder<bool>(
@@ -188,6 +249,15 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          situacao,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],

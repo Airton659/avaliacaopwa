@@ -30,6 +30,9 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 - [x] Coluna direita: Gestores com suas equipes
 - [x] Modal com checkboxes para atribuir funcionários (substitui drag & drop)
 - [x] Campo de busca no modal
+- [x] Campo de busca global na tela
+- [x] Filtro dinâmico por situação
+- [x] Exibição de situação do funcionário
 - [x] Filtra apenas funcionários disponíveis (sem gestor ou do gestor atual)
 - [x] Promover/rebaixar gestores
 - [x] Remover funcionários da equipe
@@ -39,6 +42,8 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 ### 4. Tela de Seleção - Autoavaliação
 - [x] Lista todos funcionários ativos
 - [x] Busca por nome ou chapa
+- [x] Filtro dinâmico por situação
+- [x] Exibição de situação do funcionário
 - [x] Badge "Concluído" para quem já fez autoavaliação
 - [x] Modal de senha antes de abrir formulário
 - [x] Redireciona para formulário correto (operacional ou gerencial)
@@ -46,6 +51,8 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 
 ### 5. Formulário de Avaliação ⚠️ PERGUNTAS DINÂMICAS
 - [x] Cabeçalho com informações do funcionário
+- [x] Exibição de situação do funcionário
+- [x] Formatação de data de admissão (dd/MM/yyyy)
 - [x] Barra de progresso
 - [x] **Indicador de progresso "Avaliando X de Y" (quando em loop de gestor)**
 - [x] Botão para limpar todas respostas
@@ -77,8 +84,9 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 
 ### 6. Firebase
 - [x] Firestore configurado
-- [x] Collections: config, employees, evaluations, questions
+- [x] Collections: config, funcionarios, evaluations, questions
 - [x] Regras de segurança (modo desenvolvimento)
+- [x] Helper de situações (SituacaoHelper) com 23 códigos de situação
 
 ---
 
@@ -87,6 +95,8 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 ### 1. Tela de Avaliação do Gestor ✅ COMPLETO
 - [x] Lista TODOS os gestores (isManager = true)
 - [x] Busca por nome
+- [x] Filtro dinâmico por situação
+- [x] Exibição de situação do gestor
 - [x] Mostra quantidade de subordinados
 - [x] Modal de senha do administrador antes de iniciar
 - [x] Loop automático de avaliação de subordinados
@@ -123,17 +133,37 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 - [ ] ~~Reordenar perguntas~~ (não necessário por enquanto - ordem automática funciona)
 - Arquivo: `lib/screens/config_menu_screen.dart`
 
-### 4. Sincronização com Google Sheets
-- [ ] Importar funcionários da planilha
-- [ ] Botão no menu de configurações (Dashboard)
-- [ ] Diálogo de confirmação
-- [ ] Atualizar dados sem perder isManager e managerId
+### 4. Importação de Funcionários ✅ COMPLETO
+- [x] Script Python sincroniza funcionários do SQL Server para Firestore
+- [x] Collection: `funcionarios` (migrado de `employees`)
+- [x] Campos: ativo, chapa, data_admissao, escolaridade, faixa, funcao, last_sync, nivel, nome, salario, situacao
+- [x] Filtro dinâmico por situação nas telas (busca e filtros)
+- [x] Desativação automática de funcionários não encontrados no SQL
+- [x] Formatação de data de admissão (dd/MM/yyyy)
+- [x] Exibição de situação do funcionário em todas as telas
+- Script: `C:\scripts\funcionarios\sincronizador.py`
 
 ### 5. Sistema de Login Definitivo
 - [ ] Login por MATRÍCULA em vez de senha única
 - [ ] Gestão de comissão (muda a cada 4 anos)
 - [ ] Membros da comissão têm acesso total
 - [ ] Funcionários comuns só acessam autoavaliação
+
+---
+
+## 🆕 NOVIDADES IMPLEMENTADAS
+
+### Sistema de Situação de Funcionários
+- **Helper criado**: `lib/utils/situacao_helper.dart`
+- **23 códigos de situação** implementados (A=Ativo, C=Contrato Suspenso, D=Demitido, etc.)
+- **Filtro dinâmico**: Mostra apenas situações existentes nos funcionários ativos
+- **Exibição**: Todas as telas mostram situação completa (ex: "A - Ativo")
+- **Busca**: Funciona em conjunto com filtro de situação
+- **Telas atualizadas**:
+  - Autoavaliação: busca + filtro dinâmico + exibição
+  - Avaliação do Gestor: busca + filtro dinâmico + exibição
+  - Gestão de Equipes: busca + filtro dinâmico + exibição (mobile e desktop)
+  - Formulário de Avaliação: exibição de situação e data formatada
 
 ---
 
@@ -153,16 +183,21 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
   - pergunta: string
   - ativo: boolean
 
-### Collection: employees
+### Collection: funcionarios
 - **doc: {chapa}**
   - chapa: string
   - nome: string
   - funcao: string
   - nivel: string
-  - grau: string
+  - grau: string (faixa salarial)
+  - escolaridade: string
+  - situacao: string (A, C, D, E, F, etc.)
+  - data_admissao: Timestamp
+  - salario: number
+  - ativo: boolean
   - isManager: boolean
   - managerId: string | null
-  - active: boolean
+  - last_sync: Timestamp
 
 ### Collection: evaluations
 - **doc: {ano}_{chapa}_AUTO** (autoavaliação)
@@ -191,8 +226,8 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 2. ✅ ~~Criar avaliacao_gestor_screen.dart (seleção + loop automático)~~
 3. ✅ ~~Melhorar gestão de equipes (modal em vez de drag & drop)~~
 4. ✅ ~~Implementar CRUD de perguntas (gerenciar perguntas do Firestore)~~
-5. **ATUAL: Implementar sincronização Google Sheets** (importar funcionários)
-6. **Implementar Central de Impressão** (listagem + filtros)
+5. ✅ ~~Implementar importação de funcionários (script Python + filtros dinâmicos)~~
+6. **ATUAL: Implementar Central de Impressão** (listagem + filtros)
 7. **Implementar geração de PDFs** (Anexos I-VI)
 8. **Ajustar sistema de login** (matrícula + comissão)
 

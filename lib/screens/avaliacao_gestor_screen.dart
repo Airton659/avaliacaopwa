@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'formulario_avaliacao_screen.dart';
+import '../utils/situacao_helper.dart';
 
 class AvaliacaoGestorScreen extends StatefulWidget {
   const AvaliacaoGestorScreen({super.key});
@@ -13,6 +14,7 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
   String _filtro = '';
+  String? _filtroSituacao;
 
   @override
   void dispose() {
@@ -85,6 +87,16 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                   return data['ativo'] == true;
                 }).toList();
 
+                // Coletar situações únicas dos gestores ativos
+                final situacoesDisponiveis = <String>{};
+                for (var doc in gestores) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final situacao = data['situacao']?.toString() ?? '';
+                  if (situacao.isNotEmpty) {
+                    situacoesDisponiveis.add(situacao.toUpperCase());
+                  }
+                }
+
                 // Filtrar gestores por busca
                 if (_filtro.isNotEmpty) {
                   gestores = gestores.where((doc) {
@@ -93,6 +105,15 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                     final funcao = (data['funcao'] ?? '').toString().toLowerCase();
                     final busca = _filtro.toLowerCase();
                     return nome.contains(busca) || funcao.contains(busca);
+                  }).toList();
+                }
+
+                // Filtrar por situação
+                if (_filtroSituacao != null) {
+                  gestores = gestores.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final situacao = data['situacao']?.toString() ?? '';
+                    return situacao.toUpperCase() == _filtroSituacao;
                   }).toList();
                 }
 
@@ -105,14 +126,59 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: gestores.length,
-                  itemBuilder: (context, index) {
-                    final doc = gestores[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    return _buildGestorCard(doc.id, data);
-                  },
+                return Column(
+                  children: [
+                    // Dropdown de filtro dinâmico
+                    if (situacoesDisponiveis.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        color: Colors.purple.shade50,
+                        child: DropdownButtonFormField<String>(
+                          value: _filtroSituacao,
+                          decoration: InputDecoration(
+                            labelText: 'Filtrar por Situação',
+                            labelStyle: const TextStyle(fontSize: 16),
+                            prefixIcon: const Icon(Icons.filter_list),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          style: const TextStyle(fontSize: 16, color: Colors.black),
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('Todas'),
+                            ),
+                            ...situacoesDisponiveis.map((situacao) {
+                              final descricao = SituacaoHelper.situacoes[situacao] ?? situacao;
+                              return DropdownMenuItem<String>(
+                                value: situacao,
+                                child: Text('$situacao - $descricao'),
+                              );
+                            }).toList()..sort((a, b) => a.value!.compareTo(b.value!)),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _filtroSituacao = value;
+                            });
+                          },
+                        ),
+                      ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: gestores.length,
+                        itemBuilder: (context, index) {
+                          final doc = gestores[index];
+                          final data = doc.data() as Map<String, dynamic>;
+                          return _buildGestorCard(doc.id, data);
+                        },
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -123,6 +189,8 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
   }
 
   Widget _buildGestorCard(String chapa, Map<String, dynamic> data) {
+    final situacao = SituacaoHelper.getDescricaoCompleta(data['situacao']?.toString());
+
     return FutureBuilder<QuerySnapshot>(
       future: _firestore
           .collection('funcionarios')
@@ -165,7 +233,7 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          data['nome'] ?? '',
+                          data['nome']?.toString() ?? '',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -173,10 +241,19 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          data['funcao'] ?? '',
+                          data['funcao']?.toString() ?? '',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          situacao,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.purple.shade700,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 8),

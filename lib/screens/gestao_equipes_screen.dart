@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/situacao_helper.dart';
 
 class GestaoEquipesScreen extends StatefulWidget {
   const GestaoEquipesScreen({super.key});
@@ -11,6 +12,8 @@ class GestaoEquipesScreen extends StatefulWidget {
 class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String? _filtroSituacao;
 
   @override
   void dispose() {
@@ -47,10 +50,39 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
           final employees = snapshot.data!.docs;
 
           // Filtra apenas funcionários ativos
-          final employeesAtivos = employees.where((doc) {
+          var employeesAtivos = employees.where((doc) {
             final data = doc.data() as Map<String, dynamic>;
             return data['ativo'] == true;
           }).toList();
+
+          // Coletar situações únicas dos funcionários ativos
+          final situacoesDisponiveis = <String>{};
+          for (var doc in employeesAtivos) {
+            final data = doc.data() as Map<String, dynamic>;
+            final situacao = data['situacao']?.toString() ?? '';
+            if (situacao.isNotEmpty) {
+              situacoesDisponiveis.add(situacao.toUpperCase());
+            }
+          }
+
+          // Filtro de busca
+          if (_searchQuery.isNotEmpty) {
+            employeesAtivos = employeesAtivos.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final nome = (data['nome']?.toString() ?? '').toLowerCase();
+              final funcao = (data['funcao']?.toString() ?? '').toLowerCase();
+              return nome.contains(_searchQuery) || funcao.contains(_searchQuery);
+            }).toList();
+          }
+
+          // Filtro por situação
+          if (_filtroSituacao != null) {
+            employeesAtivos = employeesAtivos.where((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final situacao = data['situacao']?.toString() ?? '';
+              return situacao.toUpperCase() == _filtroSituacao;
+            }).toList();
+          }
 
           // Separa funcionários sem gestor e gestores
           final semGestor = employeesAtivos.where((doc) {
@@ -69,6 +101,72 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
               length: 2,
               child: Column(
                 children: [
+                  // Barra de busca e filtro
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    color: Colors.blue.shade50,
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            labelText: 'Buscar funcionário',
+                            labelStyle: const TextStyle(fontSize: 16),
+                            prefixIcon: const Icon(Icons.search),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchController.clear();
+                                        _searchQuery = '';
+                                      });
+                                    },
+                                  )
+                                : null,
+                          ),
+                          style: const TextStyle(fontSize: 16),
+                          onChanged: (value) {
+                            setState(() {
+                              _searchQuery = value.toLowerCase();
+                            });
+                          },
+                        ),
+                        if (situacoesDisponiveis.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: _filtroSituacao,
+                            decoration: const InputDecoration(
+                              labelText: 'Filtrar por Situação',
+                              labelStyle: TextStyle(fontSize: 16),
+                              prefixIcon: Icon(Icons.filter_list),
+                              border: OutlineInputBorder(),
+                            ),
+                            style: const TextStyle(fontSize: 16, color: Colors.black),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('Todas'),
+                              ),
+                              ...situacoesDisponiveis.map((situacao) {
+                                final descricao = SituacaoHelper.situacoes[situacao] ?? situacao;
+                                return DropdownMenuItem<String>(
+                                  value: situacao,
+                                  child: Text('$situacao - $descricao'),
+                                );
+                              }).toList()..sort((a, b) => a.value!.compareTo(b.value!)),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _filtroSituacao = value;
+                              });
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                   TabBar(
                     labelColor: Colors.blue.shade700,
                     unselectedLabelColor: Colors.grey,
@@ -122,75 +220,153 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
           }
 
           // Layout para tablet/desktop: duas colunas lado a lado
-          return Row(
+          return Column(
             children: [
-              // COLUNA ESQUERDA: Funcionários sem gestor
-              Expanded(
-                child: Container(
-                  color: Colors.grey.shade100,
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        color: Colors.grey.shade300,
-                        child: const Text(
-                          'FUNCIONÁRIOS SEM GESTOR',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
+              // Barra de busca e filtro no topo
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.blue.shade50,
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          labelText: 'Buscar funcionário',
+                          labelStyle: const TextStyle(fontSize: 16),
+                          prefixIcon: const Icon(Icons.search),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    setState(() {
+                                      _searchController.clear();
+                                      _searchQuery = '';
+                                    });
+                                  },
+                                )
+                              : null,
                         ),
+                        style: const TextStyle(fontSize: 16),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value.toLowerCase();
+                          });
+                        },
                       ),
+                    ),
+                    if (situacoesDisponiveis.isNotEmpty) ...[
+                      const SizedBox(width: 16),
                       Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(8),
-                          itemCount: semGestor.length,
-                          itemBuilder: (context, index) {
-                            final doc = semGestor[index];
-                            final data = doc.data() as Map<String, dynamic>;
-                            return _buildFuncionarioCard(doc.id, data);
+                        child: DropdownButtonFormField<String>(
+                          value: _filtroSituacao,
+                          decoration: const InputDecoration(
+                            labelText: 'Filtrar por Situação',
+                            labelStyle: TextStyle(fontSize: 16),
+                            prefixIcon: Icon(Icons.filter_list),
+                            border: OutlineInputBorder(),
+                          ),
+                          style: const TextStyle(fontSize: 16, color: Colors.black),
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text('Todas'),
+                            ),
+                            ...situacoesDisponiveis.map((situacao) {
+                              final descricao = SituacaoHelper.situacoes[situacao] ?? situacao;
+                              return DropdownMenuItem<String>(
+                                value: situacao,
+                                child: Text('$situacao - $descricao'),
+                              );
+                            }).toList()..sort((a, b) => a.value!.compareTo(b.value!)),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _filtroSituacao = value;
+                            });
                           },
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ),
-              // COLUNA DIREITA: Gestores e Equipes
+              // Duas colunas
               Expanded(
-                flex: 2,
-                child: Container(
-                  color: Colors.white,
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        color: Colors.blue.shade100,
-                        child: const Text(
-                          'GESTORES E EQUIPES',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
+                child: Row(
+                  children: [
+                    // COLUNA ESQUERDA: Funcionários sem gestor
+                    Expanded(
+                      child: Container(
+                        color: Colors.grey.shade100,
+                        child: Column(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              color: Colors.grey.shade300,
+                              child: const Text(
+                                'FUNCIONÁRIOS SEM GESTOR',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(8),
+                                itemCount: semGestor.length,
+                                itemBuilder: (context, index) {
+                                  final doc = semGestor[index];
+                                  final data = doc.data() as Map<String, dynamic>;
+                                  return _buildFuncionarioCard(doc.id, data);
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(8),
-                          itemCount: gestores.length,
-                          itemBuilder: (context, index) {
-                            final doc = gestores[index];
-                            final data = doc.data() as Map<String, dynamic>;
-                            return _buildGestorBox(doc.id, data, employees);
-                          },
+                    ),
+                    // COLUNA DIREITA: Gestores e Equipes
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        color: Colors.white,
+                        child: Column(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(16),
+                              color: Colors.blue.shade100,
+                              child: const Text(
+                                'GESTORES E EQUIPES',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              child: ListView.builder(
+                                padding: const EdgeInsets.all(8),
+                                itemCount: gestores.length,
+                                itemBuilder: (context, index) {
+                                  final doc = gestores[index];
+                                  final data = doc.data() as Map<String, dynamic>;
+                                  return _buildGestorBox(doc.id, data, employees);
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -223,7 +399,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      data['nome'] ?? '',
+                      data['nome']?.toString() ?? '',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -231,7 +407,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      data['funcao'] ?? '',
+                      data['funcao']?.toString() ?? '',
                       style: TextStyle(
                         color: Colors.grey.shade700,
                         fontSize: 14,
@@ -253,6 +429,8 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
   }
 
   Widget _buildCardContent(Map<String, dynamic> data, bool isGestor) {
+    final situacao = SituacaoHelper.getDescricaoCompleta(data['situacao']?.toString());
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       elevation: 2,
@@ -268,15 +446,29 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
           ),
         ),
         title: Text(
-          data['nome'] ?? '',
+          data['nome']?.toString() ?? '',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
-        subtitle: Text(
-          data['funcao'] ?? '',
-          style: const TextStyle(fontSize: 14),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              data['funcao']?.toString() ?? '',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              situacao,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
         trailing: isGestor
             ? null
@@ -396,11 +588,11 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             leading: const Icon(Icons.person_outline, size: 28),
                             title: Text(
-                              data['nome'] ?? '',
+                              data['nome']?.toString() ?? '',
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                             ),
                             subtitle: Text(
-                              data['funcao'] ?? '',
+                              data['funcao']?.toString() ?? '',
                               style: const TextStyle(fontSize: 14),
                             ),
                             trailing: IconButton(
@@ -454,8 +646,8 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
           final funcionariosFiltrados = funcionarios.where((doc) {
             if (filtro.isEmpty) return true;
             final data = doc.data() as Map<String, dynamic>;
-            final nome = (data['nome'] ?? '').toString().toLowerCase();
-            final funcao = (data['funcao'] ?? '').toString().toLowerCase();
+            final nome = (data['nome']?.toString() ?? '').toString().toLowerCase();
+            final funcao = (data['funcao']?.toString() ?? '').toString().toLowerCase();
             final busca = filtro.toLowerCase();
             return nome.contains(busca) || funcao.contains(busca);
           }).toList();
@@ -571,14 +763,14 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                                   ),
                                 ),
                                 title: Text(
-                                  data['nome'] ?? '',
+                                  data['nome']?.toString() ?? '',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 subtitle: Text(
-                                  data['funcao'] ?? '',
+                                  data['funcao']?.toString() ?? '',
                                   style: const TextStyle(fontSize: 14),
                                 ),
                                 value: isSelected,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import '../utils/situacao_helper.dart';
 
 class FormularioAvaliacaoScreen extends StatefulWidget {
   final String chapa;
@@ -408,7 +410,7 @@ class _FormularioAvaliacaoScreenState
                     children: [
                       Expanded(
                         child: Text(
-                          widget.employeeData['nome'] ?? '',
+                          widget.employeeData['nome']?.toString() ?? '',
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -463,7 +465,7 @@ class _FormularioAvaliacaoScreenState
                             Expanded(
                               child: _buildInfoItem(
                                 'Admissão',
-                                widget.employeeData['data_admissao'] ?? 'N/A',
+                                _formatarDataAdmissao(widget.employeeData['data_admissao']),
                                 Icons.calendar_today,
                               ),
                             ),
@@ -475,14 +477,14 @@ class _FormularioAvaliacaoScreenState
                             Expanded(
                               child: _buildInfoItem(
                                 'Função',
-                                widget.employeeData['funcao'] ?? 'N/A',
+                                widget.employeeData['funcao']?.toString() ?? 'N/A',
                                 Icons.work,
                               ),
                             ),
                             Expanded(
                               child: _buildInfoItem(
                                 'Escolaridade',
-                                widget.employeeData['escolaridade'] ?? 'N/A',
+                                widget.employeeData['escolaridade']?.toString() ?? 'N/A',
                                 Icons.school,
                               ),
                             ),
@@ -493,17 +495,29 @@ class _FormularioAvaliacaoScreenState
                           children: [
                             Expanded(
                               child: _buildInfoItem(
+                                'Situação',
+                                SituacaoHelper.getDescricaoCompleta(widget.employeeData['situacao']?.toString()),
+                                Icons.info_outline,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildInfoItem(
                                 'Nível',
-                                widget.employeeData['nomenivel'] ??
-                                  'Nível ${widget.employeeData['nivel'] ?? 'N/A'}',
+                                widget.employeeData['nomenivel']?.toString() ??
+                                  'Nível ${widget.employeeData['nivel']?.toString() ?? 'N/A'}',
                                 Icons.trending_up,
                               ),
                             ),
                             Expanded(
                               child: _buildInfoItem(
                                 'Faixa',
-                                widget.employeeData['nomefaixa'] ??
-                                  'Faixa ${widget.employeeData['grau'] ?? 'N/A'}',
+                                widget.employeeData['nomefaixa']?.toString() ??
+                                  'Faixa ${widget.employeeData['grau']?.toString() ?? 'N/A'}',
                                 Icons.grade,
                               ),
                             ),
@@ -905,10 +919,10 @@ class _FormularioAvaliacaoScreenState
       // Criar snapshot do funcionário
       final employeeSnapshot = {
         'chapa': widget.chapa,
-        'nome': widget.employeeData['nome'],
-        'funcao': widget.employeeData['funcao'],
-        'nivel': widget.employeeData['nivel'],
-        'grau': widget.employeeData['grau'],
+        'nome': widget.employeeData['nome']?.toString() ?? '',
+        'funcao': widget.employeeData['funcao']?.toString() ?? '',
+        'nivel': widget.employeeData['nivel']?.toString() ?? '',
+        'grau': widget.employeeData['grau']?.toString() ?? '',
         'isManager': widget.employeeData['isManager'] ?? false,
       };
 
@@ -966,6 +980,25 @@ class _FormularioAvaliacaoScreenState
           _isSubmitting = false;
         });
       }
+    }
+  }
+
+  String _formatarDataAdmissao(dynamic dataAdmissao) {
+    if (dataAdmissao == null) {
+      return 'N/A';
+    }
+
+    try {
+      if (dataAdmissao is Timestamp) {
+        final DateTime dateTime = dataAdmissao.toDate();
+        return DateFormat('dd/MM/yyyy').format(dateTime);
+      } else if (dataAdmissao is String) {
+        return dataAdmissao;
+      } else {
+        return dataAdmissao.toString();
+      }
+    } catch (e) {
+      return 'N/A';
     }
   }
 }
