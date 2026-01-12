@@ -205,10 +205,11 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
     final situacao = SituacaoHelper.getDescricaoCompleta(data['situacao']?.toString());
     final isManager = data['isManager'] ?? false;
 
-    return FutureBuilder<bool>(
-      future: _hasAutoavaliacao(chapa),
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _getAutoavaliacaoInfo(chapa),
       builder: (context, snapshot) {
-        final jaAvaliou = snapshot.data ?? false;
+        final avaliacaoData = snapshot.data;
+        final jaAvaliou = avaliacaoData != null;
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
@@ -278,13 +279,13 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                         color: Colors.green,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.check_circle, color: Colors.white, size: 20),
-                          SizedBox(width: 6),
+                          const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                          const SizedBox(width: 6),
                           Text(
-                            'Concluído',
-                            style: TextStyle(
+                            avaliacaoData['displayInfo'] ?? 'Concluído',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
@@ -308,7 +309,7 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
     );
   }
 
-  Future<bool> _hasAutoavaliacao(String chapa) async {
+  Future<Map<String, dynamic>?> _getAutoavaliacaoInfo(String chapa) async {
     try {
       final configDoc = await _firestore.collection('config').doc('general').get();
       final cycle = configDoc.data()?['currentCycle'] ?? '2024/2025';
@@ -317,9 +318,28 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
       final docId = '${year}_${chapa}_AUTO';
 
       final doc = await _firestore.collection('evaluations').doc(docId).get();
-      return doc.exists;
+      
+      if (!doc.exists) return null;
+
+      final data = doc.data() as Map<String, dynamic>;
+      
+      // Formatar display info: dd/MM/yyyy - matricula
+      String displayInfo = 'Concluído';
+      
+      if (data['createdAt'] != null && data['authorMatricula'] != null) {
+        final timestamp = data['createdAt'] as Timestamp;
+        final date = timestamp.toDate();
+        final formattedDate = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+        final author = data['authorMatricula'];
+        displayInfo = '$formattedDate - $author';
+      }
+
+      return {
+        ...data,
+        'displayInfo': displayInfo,
+      };
     } catch (e) {
-      return false;
+      return null;
     }
   }
 
@@ -422,6 +442,7 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
           employeeData: data,
           isAutoavaliacao: true,
           isGerencial: isManager,
+          authorMatricula: widget.userMatricula,
         ),
       ),
     ).then((_) {

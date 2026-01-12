@@ -464,6 +464,7 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
             isGerencial: isGerencial,
             avaliacaoAtual: i + 1,
             totalAvaliacoes: subordinados.length,
+            authorMatricula: widget.userMatricula,
           ),
         ),
       );

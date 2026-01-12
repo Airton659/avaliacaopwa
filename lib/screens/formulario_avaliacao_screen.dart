@@ -11,12 +11,15 @@ class FormularioAvaliacaoScreen extends StatefulWidget {
   final int? avaliacaoAtual;
   final int? totalAvaliacoes;
 
+  final String authorMatricula;
+
   const FormularioAvaliacaoScreen({
     super.key,
     required this.chapa,
     required this.employeeData,
     required this.isAutoavaliacao,
     required this.isGerencial,
+    required this.authorMatricula,
     this.avaliacaoAtual,
     this.totalAvaliacoes,
   });
@@ -938,6 +941,7 @@ class _FormularioAvaliacaoScreenState
         'observacoes': _obsController.text,
         'media': _mediaRespostas,
         'totalPerguntas': _totalPerguntas,
+        'authorMatricula': widget.authorMatricula,
         'employeeSnapshot': employeeSnapshot,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
