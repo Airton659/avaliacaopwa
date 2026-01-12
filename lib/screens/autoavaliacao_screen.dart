@@ -57,8 +57,7 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _firestore
-                  .collection('employees')
-                  .where('active', isEqualTo: true)
+                  .collection('funcionarios')
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -75,6 +74,12 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                 }
 
                 var employees = snapshot.data!.docs;
+
+                // Filtro por ativo
+                employees = employees.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data['ativo'] == true;
+                }).toList();
 
                 // Filtro de busca
                 if (_searchQuery.isNotEmpty) {

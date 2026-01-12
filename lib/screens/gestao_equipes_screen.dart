@@ -33,8 +33,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
-            .collection('employees')
-            .where('active', isEqualTo: true)
+            .collection('funcionarios')
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -47,13 +46,19 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
 
           final employees = snapshot.data!.docs;
 
-          // Separa funcionários sem gestor e gestores
-          final semGestor = employees.where((doc) {
+          // Filtra apenas funcionários ativos
+          final employeesAtivos = employees.where((doc) {
             final data = doc.data() as Map<String, dynamic>;
-            return data['managerId'] == null && data['isManager'] != true;
+            return data['ativo'] == true;
           }).toList();
 
-          final gestores = employees.where((doc) {
+          // Separa funcionários sem gestor e gestores
+          final semGestor = employeesAtivos.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return data['managerId'] == null;
+          }).toList();
+
+          final gestores = employeesAtivos.where((doc) {
             final data = doc.data() as Map<String, dynamic>;
             return data['isManager'] == true;
           }).toList();
@@ -419,13 +424,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
     Map<String, dynamic> gestorData,
     List<QueryDocumentSnapshot> allEmployees,
   ) async {
-    // Funcionários não-gestores
-    final funcionarios = allEmployees.where((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      return data['isManager'] != true;
-    }).toList();
-
-    // IDs dos subordinados atuais
+    // IDs dos subordinados atuais deste gestor
     final subordinadosAtuais = allEmployees
         .where((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -433,6 +432,15 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
         })
         .map((doc) => doc.id)
         .toSet();
+
+    // Apenas funcionários sem gestor OU que já são subordinados deste gestor
+    final funcionarios = allEmployees.where((doc) {
+      if (doc.id == gestorChapa) return false; // Não pode atribuir a si mesmo
+      final data = doc.data() as Map<String, dynamic>;
+      final managerId = data['managerId'];
+      // Mostra se: não tem gestor OU é subordinado deste gestor
+      return managerId == null || managerId == gestorChapa;
+    }).toList();
 
     // Set para controlar seleções
     final selecionados = Set<String>.from(subordinadosAtuais);
@@ -659,7 +667,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
       // Remover os que foram desmarcados
       final removidos = subordinadosAntigos.difference(subordinadosNovos);
       for (final chapa in removidos) {
-        await _firestore.collection('employees').doc(chapa).update({
+        await _firestore.collection('funcionarios').doc(chapa).update({
           'managerId': null,
         });
       }
@@ -667,7 +675,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
       // Adicionar os que foram marcados
       final adicionados = subordinadosNovos.difference(subordinadosAntigos);
       for (final chapa in adicionados) {
-        await _firestore.collection('employees').doc(chapa).update({
+        await _firestore.collection('funcionarios').doc(chapa).update({
           'managerId': gestorChapa,
         });
       }
@@ -696,7 +704,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
 
   Future<void> _promoverGestor(String chapa) async {
     try {
-      await _firestore.collection('employees').doc(chapa).update({
+      await _firestore.collection('funcionarios').doc(chapa).update({
         'isManager': true,
         'managerId': null,
       });
@@ -717,7 +725,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
 
   Future<void> _rebaixarGestor(String chapa) async {
     try {
-      await _firestore.collection('employees').doc(chapa).update({
+      await _firestore.collection('funcionarios').doc(chapa).update({
         'isManager': false,
       });
 
@@ -737,7 +745,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
 
   Future<void> _atribuirSubordinado(String chapaSubordinado, String chapaGestor) async {
     try {
-      await _firestore.collection('employees').doc(chapaSubordinado).update({
+      await _firestore.collection('funcionarios').doc(chapaSubordinado).update({
         'managerId': chapaGestor,
       });
 
@@ -757,7 +765,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
 
   Future<void> _removerSubordinado(String chapa) async {
     try {
-      await _firestore.collection('employees').doc(chapa).update({
+      await _firestore.collection('funcionarios').doc(chapa).update({
         'managerId': null,
       });
 

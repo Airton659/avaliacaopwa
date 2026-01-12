@@ -25,12 +25,15 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 - Arquivo: `lib/screens/dashboard_screen.dart`
 
 ### 3. Gestão de Equipes
-- [x] Interface de 2 colunas
+- [x] Interface de 2 colunas (desktop) / 2 abas (mobile)
 - [x] Coluna esquerda: Funcionários sem gestor
 - [x] Coluna direita: Gestores com suas equipes
-- [x] Drag & drop para atribuir funcionários a gestores
+- [x] Modal com checkboxes para atribuir funcionários (substitui drag & drop)
+- [x] Campo de busca no modal
+- [x] Filtra apenas funcionários disponíveis (sem gestor ou do gestor atual)
 - [x] Promover/rebaixar gestores
 - [x] Remover funcionários da equipe
+- [x] Responsivo para mobile
 - Arquivo: `lib/screens/gestao_equipes_screen.dart`
 
 ### 4. Tela de Seleção - Autoavaliação
@@ -44,6 +47,8 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 ### 5. Formulário de Avaliação ⚠️ PERGUNTAS DINÂMICAS
 - [x] Cabeçalho com informações do funcionário
 - [x] Barra de progresso
+- [x] **Indicador de progresso "Avaliando X de Y" (quando em loop de gestor)**
+- [x] Botão para limpar todas respostas
 - [x] **CARREGA PERGUNTAS DO FIRESTORE (collection: questions)**
 - [x] Fallback com perguntas padrão se Firestore estiver vazio
 - [x] Filtra por tipo (OPERACIONAL ou GERENCIAL) e ativo=true
@@ -64,8 +69,9 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 - [x] Validação: só pode finalizar se todas as perguntas respondidas
 - [x] Salvar no Firestore (collection: evaluations)
 - [x] EmployeeSnapshot para dados históricos
-- [x] Confirmação ao sair sem salvar
+- [x] Confirmação ao sair sem salvar (retorna false para cancelar loop)
 - [x] Loading state enquanto carrega perguntas
+- [x] Retorna true/false para controle do loop de avaliações
 - Arquivo: `lib/screens/formulario_avaliacao_screen.dart`
 - **Script para popular perguntas:** `popular_perguntas.js`
 
@@ -78,22 +84,19 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 
 ## ❌ FALTA FAZER
 
-### 1. Tela de Seleção - Avaliação do Gestor
-- [ ] Similar à autoavaliacao_screen.dart
-- [ ] Mostrar apenas subordinados do gestor logado
-- [ ] Badge "Concluído" para quem já foi avaliado pelo gestor
-- [ ] Modal de senha antes de abrir formulário
-- Criar arquivo: `lib/screens/avaliacao_gestor_screen.dart`
+### 1. Tela de Avaliação do Gestor ✅ COMPLETO
+- [x] Lista TODOS os gestores (isManager = true)
+- [x] Busca por nome
+- [x] Mostra quantidade de subordinados
+- [x] Modal de senha do administrador antes de iniciar
+- [x] Loop automático de avaliação de subordinados
+- [x] Mostra progresso: "Avaliando 3 de 10" no AppBar
+- [x] Cancela loop se usuário sair no meio
+- [x] Diálogo de conclusão ao terminar todas avaliações
+- [x] Permite gestores serem subordinados de outros gestores
+- Arquivo: `lib/screens/avaliacao_gestor_screen.dart`
 
-### 2. Loop de Avaliação da Equipe (Gestor avalia todos)
-- [ ] Tela que permite gestor avaliar toda sua equipe sequencialmente
-- [ ] Após finalizar uma avaliação, vai automaticamente para próximo subordinado
-- [ ] Mostra progresso: "Avaliando 3 de 10"
-- [ ] Opção de pular funcionário
-- [ ] Só sai ao terminar todos ou com senha
-- Criar arquivo: `lib/screens/loop_avaliacao_gestor_screen.dart`
-
-### 3. Central de Impressão
+### 2. Central de Impressão
 - [ ] Filtros: ano, tipo de avaliação, nome/chapa
 - [ ] Listar todas avaliações
 - [ ] Botão "Gerar PDF" para cada avaliação
@@ -106,21 +109,27 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
   - Anexo VI: Consolidado Gerencial (média das duas)
 - Arquivo atual: `lib/screens/central_impressao_screen.dart` (placeholder)
 
-### 4. Tela de Gerenciar Perguntas
-- [ ] CRUD de perguntas
-- [ ] Separar por tipo: Operacional e Gerencial
-- [ ] Separar por seção
-- [ ] Ativar/desativar perguntas
-- [ ] Reordenar perguntas
-- Arquivo atual: `lib/screens/config_menu_screen.dart` (placeholder)
+### 3. Tela de Gerenciar Perguntas ✅ COMPLETO
+- [x] CRUD de perguntas (adicionar novas)
+- [x] Separar por tipo: Operacional e Gerencial (botões de seleção)
+- [x] Separar por seção e subseção (agrupamento automático)
+- [x] Ativar/desativar perguntas (botão de olho)
+- [x] Dropdowns para seção e subseção com opções pré-definidas
+- [x] Ordem calculada automaticamente (última ordem + 1)
+- [x] Campo de busca para filtrar perguntas
+- [x] Visualização organizada em cards expansíveis
+- [x] Perguntas inativas não aparecem nos formulários
+- [x] **NÃO permite editar ou excluir** (mantém histórico intacto)
+- [ ] ~~Reordenar perguntas~~ (não necessário por enquanto - ordem automática funciona)
+- Arquivo: `lib/screens/config_menu_screen.dart`
 
-### 5. Sincronização com Google Sheets
+### 4. Sincronização com Google Sheets
 - [ ] Importar funcionários da planilha
 - [ ] Botão no menu de configurações (Dashboard)
 - [ ] Diálogo de confirmação
 - [ ] Atualizar dados sem perder isManager e managerId
 
-### 6. Sistema de Login Definitivo
+### 5. Sistema de Login Definitivo
 - [ ] Login por MATRÍCULA em vez de senha única
 - [ ] Gestão de comissão (muda a cada 4 anos)
 - [ ] Membros da comissão têm acesso total
@@ -178,27 +187,31 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 
 ## PRÓXIMOS PASSOS (EM ORDEM)
 
-1. **Deploy atual** (formulário de avaliação pronto)
-2. **Criar avaliacao_gestor_screen.dart** (seleção de subordinados)
-3. **Criar loop_avaliacao_gestor_screen.dart** (avaliar equipe inteira)
-4. **Implementar Central de Impressão** (listagem + filtros)
-5. **Implementar geração de PDFs** (Anexos I-VI)
-6. **Implementar sincronização Google Sheets**
-7. **Ajustar sistema de login** (matrícula + comissão)
+1. ✅ ~~Deploy atual (formulário de avaliação pronto)~~
+2. ✅ ~~Criar avaliacao_gestor_screen.dart (seleção + loop automático)~~
+3. ✅ ~~Melhorar gestão de equipes (modal em vez de drag & drop)~~
+4. ✅ ~~Implementar CRUD de perguntas (gerenciar perguntas do Firestore)~~
+5. **ATUAL: Implementar sincronização Google Sheets** (importar funcionários)
+6. **Implementar Central de Impressão** (listagem + filtros)
+7. **Implementar geração de PDFs** (Anexos I-VI)
+8. **Ajustar sistema de login** (matrícula + comissão)
 
 ---
 
 ## COMANDOS ÚTEIS
 
 ```bash
-# Build
-flutter build web --release
+# Build (COM ÍCONES - importante para não perder os icons do Material)
+flutter build web --no-tree-shake-icons --release
 
 # Deploy
-firebase deploy --only hosting:avaliacao-itaurb
+firebase deploy --only hosting
 
 # Run local
 flutter run -d chrome
+
+# Clean
+flutter clean
 ```
 
 ---
@@ -210,3 +223,11 @@ flutter run -d chrome
 - Todos os formulários usam as perguntas dos documentos Word em `avaliacoes/`
 - EmployeeSnapshot garante dados históricos corretos nos PDFs
 - Sistema calcula média automaticamente ao salvar avaliação
+- **IMPORTANTE**: Sempre usar `--no-tree-shake-icons` no build para não perder os ícones do Material
+- Headers de cache adicionados no index.html para evitar problemas de cache no navegador
+- Gestores podem ser subordinados de outros gestores (hierarquia flexível)
+- **Perguntas dinâmicas**: Sistema carrega perguntas do Firestore, permitindo adicionar/desativar sem rebuild
+- **Ordem automática**: Perguntas são adicionadas ao final da subseção automaticamente
+- **Índices necessários no Firestore**:
+  - `questions`: tipo (Asc) + ordem (Asc)
+  - `questions`: tipo (Asc) + secao (Asc) + subsecao (Asc)

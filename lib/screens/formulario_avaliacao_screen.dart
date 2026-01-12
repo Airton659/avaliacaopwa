@@ -6,6 +6,8 @@ class FormularioAvaliacaoScreen extends StatefulWidget {
   final Map<String, dynamic> employeeData;
   final bool isAutoavaliacao;
   final bool isGerencial;
+  final int? avaliacaoAtual;
+  final int? totalAvaliacoes;
 
   const FormularioAvaliacaoScreen({
     super.key,
@@ -13,6 +15,8 @@ class FormularioAvaliacaoScreen extends StatefulWidget {
     required this.employeeData,
     required this.isAutoavaliacao,
     required this.isGerencial,
+    this.avaliacaoAtual,
+    this.totalAvaliacoes,
   });
 
   @override
@@ -44,7 +48,6 @@ class _FormularioAvaliacaoScreenState
           .collection('questions')
           .where('tipo', isEqualTo: tipo)
           .where('ativo', isEqualTo: true)
-          .orderBy('ordem')
           .get();
 
       if (snapshot.docs.isEmpty) {
@@ -58,10 +61,18 @@ class _FormularioAvaliacaoScreenState
         return;
       }
 
+      // Ordenar perguntas por ordem
+      final docs = snapshot.docs.toList();
+      docs.sort((a, b) {
+        final ordemA = a.data()['ordem'] ?? 0;
+        final ordemB = b.data()['ordem'] ?? 0;
+        return ordemA.compareTo(ordemB);
+      });
+
       // Agrupar perguntas por seção e subseção
       final Map<String, Map<String, List<String>>> agrupadas = {};
 
-      for (var doc in snapshot.docs) {
+      for (var doc in docs) {
         final data = doc.data();
         final secao = data['secao'] ?? '';
         final subsecao = data['subsecao'] ?? '';
@@ -320,14 +331,24 @@ class _FormularioAvaliacaoScreenState
         );
 
         if (confirmExit == true && context.mounted) {
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(false);
         }
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            widget.isAutoavaliacao ? 'Autoavaliação' : 'Avaliação do Gestor',
-            style: const TextStyle(fontSize: 20),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.isAutoavaliacao ? 'Autoavaliação' : 'Avaliação do Gestor',
+                style: const TextStyle(fontSize: 20),
+              ),
+              if (widget.avaliacaoAtual != null && widget.totalAvaliacoes != null)
+                Text(
+                  'Avaliando ${widget.avaliacaoAtual} de ${widget.totalAvaliacoes}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
+                ),
+            ],
           ),
           backgroundColor: widget.isAutoavaliacao ? Colors.blue : Colors.purple,
           actions: [
@@ -921,10 +942,10 @@ class _FormularioAvaliacaoScreenState
           ),
         );
 
-        // Aguardar um pouco e voltar
+        // Aguardar um pouco e voltar com resultado true
         await Future.delayed(const Duration(seconds: 1));
         if (mounted) {
-          Navigator.pop(context);
+          Navigator.pop(context, true);
         }
       }
     } catch (e) {
