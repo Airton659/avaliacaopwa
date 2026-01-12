@@ -6,7 +6,14 @@ import 'config_menu_screen.dart';
 import 'gestao_equipes_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key});
+  final String userMatricula;
+  final bool isSuperAdmin;
+
+  const DashboardScreen({
+    super.key,
+    required this.userMatricula,
+    required this.isSuperAdmin,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +52,8 @@ class DashboardScreen extends StatelessWidget {
                     builder: (context) => const ConfigMenuScreen(),
                   ),
                 );
-              } else if (value == 'sincronizar') {
-                _showSyncDialog(context);
+              } else if (value == 'comissao') {
+                Navigator.pushNamed(context, '/gerenciar-comissao');
               }
             },
             itemBuilder: (context) => [
@@ -70,16 +77,17 @@ class DashboardScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const PopupMenuItem(
-                value: 'sincronizar',
-                child: Row(
-                  children: [
-                    Icon(Icons.sync, size: 28),
-                    SizedBox(width: 12),
-                    Text('Sincronizar Planilha', style: TextStyle(fontSize: 16)),
-                  ],
+              if (isSuperAdmin)
+                const PopupMenuItem(
+                  value: 'comissao',
+                  child: Row(
+                    children: [
+                      Icon(Icons.admin_panel_settings, size: 28),
+                      SizedBox(width: 12),
+                      Text('Gerenciar Comissão', style: TextStyle(fontSize: 16)),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
           IconButton(
@@ -284,43 +292,6 @@ class DashboardScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _showSyncDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Sincronizar Planilha',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Esta função irá importar os dados da planilha Google Sheets.\n\n'
-          'Deseja continuar?',
-          style: TextStyle(fontSize: 16),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(fontSize: 16)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Sincronização em desenvolvimento',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              );
-            },
-            child: const Text('Sincronizar', style: TextStyle(fontSize: 16)),
-          ),
-        ],
       ),
     );
   }

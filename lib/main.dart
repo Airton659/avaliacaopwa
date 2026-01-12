@@ -3,7 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'providers/employee_provider.dart';
 import 'providers/evaluation_provider.dart';
-import 'screens/login_screen.dart';
+import 'screens/login_matricula_screen.dart';
+import 'screens/gerenciar_comissao_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -61,7 +62,8 @@ class MyApp extends StatelessWidget {
         ),
         initialRoute: '/login',
         routes: {
-          '/login': (context) => const LoginScreen(),
+          '/login': (context) => const LoginMatriculaScreen(),
+          '/gerenciar-comissao': (context) => const GerenciarComissaoScreen(),
         },
       ),
     );

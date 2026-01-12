@@ -143,15 +143,34 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 - [x] Exibição de situação do funcionário em todas as telas
 - Script: `C:\scripts\funcionarios\sincronizador.py`
 
-### 5. Sistema de Login Definitivo
-- [ ] Login por MATRÍCULA em vez de senha única
-- [ ] Gestão de comissão (muda a cada 4 anos)
-- [ ] Membros da comissão têm acesso total
-- [ ] Funcionários comuns só acessam autoavaliação
+### 5. Sistema de Login Definitivo ✅ COMPLETO
+- [x] Login por MATRÍCULA em vez de senha única
+- [x] Gestão de comissão (CRUD completo com busca e filtros)
+- [x] Apenas membros da comissão têm acesso ao sistema
+- [x] Super Admin (matrícula 03308) pode gerenciar a comissão
+- [x] Super Admin pode editar própria senha mas não pode ser removido/desativado
+- [x] Tela de gerenciamento com busca, filtro por situação e exibição completa
+- Arquivos:
+  - `lib/screens/login_matricula_screen.dart`
+  - `lib/screens/gerenciar_comissao_screen.dart`
+  - Script: `criar_super_admin.py`
 
 ---
 
 ## 🆕 NOVIDADES IMPLEMENTADAS
+
+### Sistema de Login e Gestão de Comissão
+- **Login por matrícula**: Apenas membros da comissão podem acessar o sistema
+- **Super Admin**: Matrícula 03308 com poderes especiais de gerenciamento
+- **Gerenciar Comissão**: Tela completa para CRUD de membros
+  - Adicionar funcionários à comissão (com senha)
+  - Editar senha de membros
+  - Ativar/desativar membros
+  - Remover da comissão
+  - Super admin pode editar própria senha mas não pode ser removido/desativado
+- **Busca e filtros**: Campo de busca + filtro dinâmico por situação
+- **Exibição completa**: Mostra situação do funcionário, função, chapa
+- **Collection**: `comissao` com campos matricula, senha, ativo, isSuperAdmin
 
 ### Sistema de Situação de Funcionários
 - **Helper criado**: `lib/utils/situacao_helper.dart`
@@ -163,6 +182,7 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
   - Autoavaliação: busca + filtro dinâmico + exibição
   - Avaliação do Gestor: busca + filtro dinâmico + exibição
   - Gestão de Equipes: busca + filtro dinâmico + exibição (mobile e desktop)
+  - Gerenciar Comissão: busca + filtro dinâmico + exibição
   - Formulário de Avaliação: exibição de situação e data formatada
 
 ---
@@ -182,6 +202,15 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
   - subsecao: string (ex: "I.1 - Discrição")
   - pergunta: string
   - ativo: boolean
+
+### Collection: comissao
+- **doc: {chapa}** (matrícula do funcionário)
+  - matricula: string
+  - senha: string (senha de acesso ao sistema)
+  - ativo: boolean (se pode fazer login)
+  - isSuperAdmin: boolean (true apenas para 03308)
+  - createdAt: Timestamp
+  - updatedAt: Timestamp (quando senha é alterada)
 
 ### Collection: funcionarios
 - **doc: {chapa}**
@@ -227,9 +256,9 @@ Criar um PWA em Flutter para avaliação de desempenho dos funcionários da EDI 
 3. ✅ ~~Melhorar gestão de equipes (modal em vez de drag & drop)~~
 4. ✅ ~~Implementar CRUD de perguntas (gerenciar perguntas do Firestore)~~
 5. ✅ ~~Implementar importação de funcionários (script Python + filtros dinâmicos)~~
-6. **ATUAL: Implementar Central de Impressão** (listagem + filtros)
-7. **Implementar geração de PDFs** (Anexos I-VI)
-8. **Ajustar sistema de login** (matrícula + comissão)
+6. ✅ ~~Ajustar sistema de login (matrícula + comissão)~~
+7. **ATUAL: Implementar Central de Impressão** (listagem + filtros)
+8. **Implementar geração de PDFs** (Anexos I-VI)
 
 ---
 
