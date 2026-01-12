@@ -117,7 +117,9 @@ class DashboardScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AutoavaliacaoScreen(),
+                            builder: (context) => AutoavaliacaoScreen(
+                              userMatricula: userMatricula,
+                            ),
                           ),
                         );
                       },
@@ -134,7 +136,9 @@ class DashboardScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AvaliacaoGestorScreen(),
+                            builder: (context) => AvaliacaoGestorScreen(
+                              userMatricula: userMatricula,
+                            ),
                           ),
                         );
                       },
@@ -178,7 +182,9 @@ class DashboardScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AutoavaliacaoScreen(),
+                          builder: (context) => AutoavaliacaoScreen(
+                            userMatricula: userMatricula,
+                          ),
                         ),
                       );
                     },
@@ -196,7 +202,9 @@ class DashboardScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const AvaliacaoGestorScreen(),
+                          builder: (context) => AvaliacaoGestorScreen(
+                            userMatricula: userMatricula,
+                          ),
                         ),
                       );
                     },

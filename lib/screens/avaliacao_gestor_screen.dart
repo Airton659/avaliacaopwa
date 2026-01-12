@@ -4,7 +4,12 @@ import 'formulario_avaliacao_screen.dart';
 import '../utils/situacao_helper.dart';
 
 class AvaliacaoGestorScreen extends StatefulWidget {
-  const AvaliacaoGestorScreen({super.key});
+  final String userMatricula;
+
+  const AvaliacaoGestorScreen({
+    super.key,
+    required this.userMatricula,
+  });
 
   @override
   State<AvaliacaoGestorScreen> createState() => _AvaliacaoGestorScreenState();
@@ -401,14 +406,14 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
   }
 
   Future<bool> _verificarSenha(String senha) async {
-    // Buscar a senha do admin no Firestore
     try {
-      final doc = await _firestore.collection('config').doc('general').get();
-      final senhaAdmin = doc.data()?['adminPassword'] ?? '123456';
-      return senha == senhaAdmin;
+      final comissaoDoc = await _firestore.collection('comissao').doc(widget.userMatricula).get();
+      if (!comissaoDoc.exists) return false;
+
+      final senhaComissao = comissaoDoc.data()?['senha'] ?? '';
+      return senha == senhaComissao;
     } catch (e) {
-      // Se não encontrar a senha no Firestore, usa senha padrão
-      return senha == '123456';
+      return false;
     }
   }
 

@@ -4,7 +4,12 @@ import 'formulario_avaliacao_screen.dart';
 import '../utils/situacao_helper.dart';
 
 class AutoavaliacaoScreen extends StatefulWidget {
-  const AutoavaliacaoScreen({super.key});
+  final String userMatricula;
+
+  const AutoavaliacaoScreen({
+    super.key,
+    required this.userMatricula,
+  });
 
   @override
   State<AutoavaliacaoScreen> createState() => _AutoavaliacaoScreenState();
@@ -396,9 +401,11 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
 
   Future<bool> _validatePassword(String password) async {
     try {
-      final configDoc = await _firestore.collection('config').doc('general').get();
-      final adminPassword = configDoc.data()?['adminPassword'] ?? '1234';
-      return password == adminPassword;
+      final comissaoDoc = await _firestore.collection('comissao').doc(widget.userMatricula).get();
+      if (!comissaoDoc.exists) return false;
+
+      final senhaComissao = comissaoDoc.data()?['senha'] ?? '';
+      return password == senhaComissao;
     } catch (e) {
       return false;
     }
