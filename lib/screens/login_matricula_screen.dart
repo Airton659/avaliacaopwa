@@ -122,10 +122,10 @@ class _LoginMatriculaScreenState extends State<LoginMatriculaScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Logo/Título
-                      Icon(
-                        Icons.assessment,
-                        size: 80,
-                        color: Colors.blue.shade700,
+                      Image.asset(
+                        'assets/images/logo.png',
+                        height: 120, 
+                        fit: BoxFit.contain,
                       ),
                       const SizedBox(height: 24),
                       const Text(

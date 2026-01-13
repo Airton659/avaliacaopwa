@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'signature_screen.dart';
 import 'package:intl/intl.dart';
 import '../utils/situacao_helper.dart';
 
@@ -12,6 +15,7 @@ class FormularioAvaliacaoScreen extends StatefulWidget {
   final int? totalAvaliacoes;
 
   final String authorMatricula;
+  final bool requestSignature;
 
   const FormularioAvaliacaoScreen({
     super.key,
@@ -22,6 +26,7 @@ class FormularioAvaliacaoScreen extends StatefulWidget {
     required this.authorMatricula,
     this.avaliacaoAtual,
     this.totalAvaliacoes,
+    this.requestSignature = true,
   });
 
   @override
@@ -900,8 +905,73 @@ class _FormularioAvaliacaoScreenState
       _isSubmitting = true;
     });
 
+    // 0. Modal de Confirmação
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Avaliação'),
+        content: const Text(
+          'Deseja realmente finalizar esta avaliação?\n\n'
+          'Verifique se as notas e observações estão corretas antes de prosseguir.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false), // Cancelar
+            child: const Text('Voltar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true), // Confirmar
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+      return;
+    }
+
+    // 1. Solicitar Assinatura (apenas se requestSignature for true)
+    String? signatureUrl;
+
+    if (widget.requestSignature) {
+      final signatureBytes = await Navigator.push<Uint8List>(
+        context,
+        MaterialPageRoute(builder: (context) => const SignatureScreen()),
+      );
+
+      if (signatureBytes == null) {
+        if (mounted) {
+          setState(() {
+            _isSubmitting = false;
+          });
+        }
+        return; // Usuário cancelou
+      }
+
+       // 2. Upload da Assinatura
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('signatures')
+            .child('auto') // Organizar por tipo
+            .child('${widget.chapa}_${DateTime.now().millisecondsSinceEpoch}.png');
+
+        await storageRef.putData(signatureBytes);
+        signatureUrl = await storageRef.getDownloadURL();
+    }
+
     try {
       // Obter ciclo atual
+
       final configDoc = await _firestore.collection('config').doc('general').get();
       final ciclo = configDoc.data()?['currentCycle'] ?? '2024/2025';
       final ano = ciclo.split('/')[0];
@@ -929,8 +999,12 @@ class _FormularioAvaliacaoScreenState
         'isManager': widget.employeeData['isManager'] ?? false,
       };
 
+      // 2. Upload da Assinatura para o Storage (já feito acima se necessário)
+      // Código movido para bloco condicional anterior
+      
       // Salvar avaliação
       await _firestore.collection('evaluations').doc(docId).set({
+
         'chapa': widget.chapa,
         'ciclo': ciclo,
         'ano': ano,
@@ -940,6 +1014,7 @@ class _FormularioAvaliacaoScreenState
         'respostas': _respostas,
         'observacoes': _obsController.text,
         'media': _mediaRespostas,
+        'signatureUrl': signatureUrl, // URL da assinatura
         'totalPerguntas': _totalPerguntas,
         'authorMatricula': widget.authorMatricula,
         'employeeSnapshot': employeeSnapshot,

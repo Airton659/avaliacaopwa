@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:typed_data';
 import 'formulario_avaliacao_screen.dart';
+import 'signature_screen.dart';
 import '../utils/situacao_helper.dart';
 
 class AvaliacaoGestorScreen extends StatefulWidget {
@@ -465,6 +468,7 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
             avaliacaoAtual: i + 1,
             totalAvaliacoes: subordinados.length,
             authorMatricula: widget.userMatricula,
+            requestSignature: false, // Assinatura será solicitada no final
           ),
         ),
       );
@@ -477,37 +481,89 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
       avaliadasComSucesso++;
     }
 
-    // Após avaliar todos, mostrar mensagem de conclusão
-    if (mounted && avaliadasComSucesso == subordinados.length) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green.shade700, size: 32),
-              const SizedBox(width: 12),
-              const Text(
-                'Avaliações Concluídas',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+
+    
+    // Verificando se todos foram avaliados com sucesso
+    if (avaliadasComSucesso != subordinados.length) return;
+
+    if (!mounted) return;
+
+    // Solicitar assinatura do gestor (BULK SIGNATURE)
+    final signatureBytes = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(builder: (context) => const SignatureScreen()),
+    );
+
+    if (signatureBytes == null) {
+      // Se cancelar a assinatura, não finaliza o processo visualmente, mas as avaliações já foram salvas sem assinatura
+      // O ideal seria forçar a assinatura ou permitir tentar novamente
+      return;
+    }
+
+    // Upload da assinatura
+    try {
+      final configDoc = await _firestore.collection('config').doc('general').get();
+      final ciclo = configDoc.data()?['currentCycle'] ?? '2024/2025';
+      
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('signatures')
+          .child('gestor')
+          .child('${widget.userMatricula}_${DateTime.now().millisecondsSinceEpoch}.png');
+
+      await storageRef.putData(signatureBytes);
+      final signatureUrl = await storageRef.getDownloadURL();
+
+      // Atualizar todas as avaliações feitas neste loop com a assinatura
+      final ano = ciclo.split('/')[0];
+      final batch = _firestore.batch();
+      
+      for (var sub in subordinados) {
+         final docId = '${ano}_${sub.id}_GESTOR';
+         final docRef = _firestore.collection('evaluations').doc(docId);
+         batch.update(docRef, {'signatureUrl': signatureUrl});
+      }
+      
+      await batch.commit();
+
+      // Após avaliar todos e assinar, mostrar mensagem de conclusão
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green.shade700, size: 32),
+                const SizedBox(width: 12),
+                const Text(
+                  'Avaliações Concluídas',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: Text(
+              'Todas as avaliações da equipe de ${gestorData['nome']} foram concluídas e assinadas com sucesso!',
+              style: const TextStyle(fontSize: 16),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade700,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('OK', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
-          content: Text(
-            'Todas as avaliações da equipe de ${gestorData['nome']} foram concluídas com sucesso!',
-            style: const TextStyle(fontSize: 16),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade700,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('OK', style: TextStyle(fontSize: 16)),
-            ),
-          ],
-        ),
-      );
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar assinatura: $e')),
+        );
+      }
     }
   }
 }

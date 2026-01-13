@@ -71,7 +71,8 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
               final data = doc.data() as Map<String, dynamic>;
               final nome = (data['nome']?.toString() ?? '').toLowerCase();
               final funcao = (data['funcao']?.toString() ?? '').toLowerCase();
-              return nome.contains(_searchQuery) || funcao.contains(_searchQuery);
+              final chapa = doc.id.toLowerCase();
+              return nome.contains(_searchQuery) || funcao.contains(_searchQuery) || chapa.contains(_searchQuery);
             }).toList();
           }
 
@@ -459,6 +460,10 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
               data['funcao']?.toString() ?? '',
               style: const TextStyle(fontSize: 14),
             ),
+            Text(
+              'Mat: ${data['chapa'] ?? ''}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
             const SizedBox(height: 2),
             Text(
               situacao,
@@ -637,11 +642,12 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
     // Set para controlar seleções
     final selecionados = Set<String>.from(subordinadosAtuais);
 
+    String filtro = '';
+
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          String filtro = '';
 
           final funcionariosFiltrados = funcionarios.where((doc) {
             if (filtro.isEmpty) return true;
@@ -649,7 +655,8 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
             final nome = (data['nome']?.toString() ?? '').toString().toLowerCase();
             final funcao = (data['funcao']?.toString() ?? '').toString().toLowerCase();
             final busca = filtro.toLowerCase();
-            return nome.contains(busca) || funcao.contains(busca);
+            final chapa = doc.id.toLowerCase();
+            return nome.contains(busca) || funcao.contains(busca) || chapa.contains(busca);
           }).toList();
 
           return Dialog(
@@ -770,7 +777,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                                   ),
                                 ),
                                 subtitle: Text(
-                                  data['funcao']?.toString() ?? '',
+                                  '${data['funcao']?.toString() ?? ''} - Mat: $chapa',
                                   style: const TextStyle(fontSize: 14),
                                 ),
                                 value: isSelected,

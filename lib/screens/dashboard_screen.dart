@@ -22,12 +22,9 @@ class DashboardScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.home),
-          iconSize: 32,
-          onPressed: () {
-            // Já está na home
-          },
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
         ),
         title: const Text(
           'Painel de Controle',
