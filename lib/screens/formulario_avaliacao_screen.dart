@@ -27,7 +27,10 @@ class FormularioAvaliacaoScreen extends StatefulWidget {
     this.avaliacaoAtual,
     this.totalAvaliacoes,
     this.requestSignature = true,
+    this.allowSaveWithoutSignature = false,
   });
+
+  final bool allowSaveWithoutSignature;
 
   @override
   State<FormularioAvaliacaoScreen> createState() =>
@@ -43,10 +46,56 @@ class _FormularioAvaliacaoScreenState
   bool _isLoading = true;
   List<Map<String, dynamic>> _questoes = [];
 
+  bool _isReadOnly = false;
+
   @override
   void initState() {
     super.initState();
     _carregarPerguntas();
+    _verificarAvaliacaoExistente();
+  }
+
+  Future<void> _verificarAvaliacaoExistente() async {
+    try {
+      final configDoc = await _firestore.collection('config').doc('general').get();
+      final ano = configDoc.data()?['currentCycle'] ?? '2026';
+
+      final docId = widget.isAutoavaliacao
+          ? '${ano}_${widget.chapa}_AUTO'
+          : '${ano}_${widget.chapa}_GESTOR';
+
+      final doc = await _firestore.collection('evaluations').doc(docId).get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final status = data['status'] as String? ?? 'pendente';
+
+        // Travamento apenas se já foi assinada (concluida)
+        // O usuário pediu: "depois q foi preenchida e assinada, não pode ser alterada mais"
+        // Status 'aguardando_assinatura' ainda pode permitir edição se o gestor quiser corrigir antes de assinar?
+        // Geralmente sim, mas se for "preenchida" (salva), talvez ele queira travar também.
+        // Pelo pedido "preenchida E assinada", vou travar apenas em 'concluida'.
+        // Mas se estiver 'aguardando_assinatura', o funcionário já preencheu?
+        // Se for GESTOR avaliando, ele salva -> aguardando_assinatura.
+        // Se ele entrar de novo, deve poder editar? Normalmente sim, até assinar.
+        // Vou travar APENAS se status == 'concluida' (que implica assinada).
+
+        if (status == 'concluida') {
+           setState(() {
+             _isReadOnly = true;
+             // Carregar respostas para visualização
+             if (data['respostas'] != null) {
+               _respostas.addAll(Map<String, int>.from(data['respostas']));
+             }
+             if (data['observacoes'] != null) {
+               _obsController.text = data['observacoes'];
+             }
+           });
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao verificar avaliação existente: $e');
+    }
   }
 
   Future<void> _carregarPerguntas() async {
@@ -362,13 +411,14 @@ class _FormularioAvaliacaoScreenState
           ),
           backgroundColor: widget.isAutoavaliacao ? Colors.blue : Colors.purple,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.clear_all, size: 28),
-              tooltip: 'Limpar todas as respostas',
-              onPressed: () {
-                _confirmarLimpeza();
-              },
-            ),
+            if (!_isReadOnly)
+              IconButton(
+                icon: const Icon(Icons.clear_all, size: 28),
+                tooltip: 'Limpar todas as respostas',
+                onPressed: () {
+                  _confirmarLimpeza();
+                },
+              ),
           ],
         ),
         body: _isLoading
@@ -642,8 +692,9 @@ class _FormularioAvaliacaoScreenState
                     TextField(
                       controller: _obsController,
                       maxLines: 5,
+                      enabled: !_isReadOnly, // Desabilita edição
                       decoration: InputDecoration(
-                        hintText: 'Digite suas observações aqui...',
+                        hintText: _isReadOnly ? 'Nenhuma observação registrada.' : 'Digite suas observações aqui...',
                         hintStyle: TextStyle(
                           fontSize: 16,
                           color: Colors.grey.shade500,
@@ -651,6 +702,8 @@ class _FormularioAvaliacaoScreenState
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        filled: _isReadOnly,
+                        fillColor: _isReadOnly ? Colors.grey.shade100 : null,
                         contentPadding: const EdgeInsets.all(16),
                       ),
                       style: const TextStyle(fontSize: 16),
@@ -663,30 +716,47 @@ class _FormularioAvaliacaoScreenState
                       width: double.infinity,
                       height: 60,
                       child: ElevatedButton(
-                        onPressed: _todasRespondidas && !_isSubmitting
-                            ? _salvarAvaliacao
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              widget.isAutoavaliacao ? Colors.blue : Colors.purple,
-                          disabledBackgroundColor: Colors.grey.shade300,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                        style: ButtonStyle(
+                          backgroundColor: MaterialStateProperty.resolveWith<Color>((Set<MaterialState> states) {
+                            if (states.contains(MaterialState.disabled)) {
+                              return Colors.grey.shade300;
+                            }
+                            return widget.isAutoavaliacao ? Colors.blue : Colors.purple;
+                          }),
+                          foregroundColor: MaterialStateProperty.resolveWith<Color>((Set<MaterialState> states) {
+                            if (states.contains(MaterialState.disabled)) {
+                              return Colors.grey.shade600;
+                            }
+                            return Colors.white;
+                          }),
+                          shape: MaterialStateProperty.all(
+                            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
+                          elevation: MaterialStateProperty.resolveWith<double>((states) {
+                             if (states.contains(MaterialState.disabled)) return 0;
+                             return 2; 
+                          }),
                         ),
+                        onPressed: _isReadOnly
+                            ? () => Navigator.pop(context)
+                            : (_todasRespondidas && !_isSubmitting
+                                ? _salvarAvaliacao
+                                : null),
                         child: _isSubmitting
                             ? const CircularProgressIndicator(
                                 color: Colors.white,
                               )
                             : Text(
-                                _todasRespondidas
-                                    ? 'FINALIZAR AVALIAÇÃO'
-                                    : 'RESPONDA TODAS AS PERGUNTAS PARA CONTINUAR',
+                                _isReadOnly 
+                                    ? 'VOLTAR (AVALIAÇÃO CONCLUÍDA)' 
+                                    : (_todasRespondidas
+                                        ? 'FINALIZAR AVALIAÇÃO'
+                                        : 'RESPONDA TODAS AS PERGUNTAS PARA CONTINUAR'),
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 14, // Reduzido um pouco para evitar overflow em telas pequenas
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
                       ),
                     ),
@@ -861,11 +931,13 @@ class _FormularioAvaliacaoScreenState
     };
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _respostas[key] = valor;
-        });
-      },
+      onTap: _isReadOnly 
+        ? null 
+        : () {
+            setState(() {
+              _respostas[key] = valor;
+            });
+          },
       child: Container(
         width: 60,
         height: 60,
@@ -940,10 +1012,16 @@ class _FormularioAvaliacaoScreenState
       return;
     }
 
-    // 1. Solicitar Assinatura (apenas se requestSignature for true)
-    String? signatureUrl;
 
-    if (widget.requestSignature) {
+
+    // 1. Solicitar Assinatura (apenas se requestSignature for true E não for save without signature)
+    String? signatureUrl;
+    String status = 'concluida';
+
+    if (widget.allowSaveWithoutSignature) {
+       status = 'aguardando_assinatura';
+       // Skip signature screen
+    } else if (widget.requestSignature) {
       final signatureBytes = await Navigator.push<Uint8List>(
         context,
         MaterialPageRoute(builder: (context) => const SignatureScreen()),
@@ -973,8 +1051,9 @@ class _FormularioAvaliacaoScreenState
       // Obter ciclo atual
 
       final configDoc = await _firestore.collection('config').doc('general').get();
-      final ciclo = configDoc.data()?['currentCycle'] ?? '2024/2025';
-      final ano = ciclo.split('/')[0];
+      final ciclo = configDoc.data()?['currentCycle'] ?? '2026';
+      // const ciclo = '2026'; // Hardcode removido
+      final ano = ciclo;
 
       // Definir tipo de avaliação
       String tipo;
@@ -1019,8 +1098,10 @@ class _FormularioAvaliacaoScreenState
         'authorMatricula': widget.authorMatricula,
         'employeeSnapshot': employeeSnapshot,
         'createdAt': FieldValue.serverTimestamp(),
+        'status': status,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+        'employeeId': widget.chapa, // Adicionando employeeId para busca correta no Dashboard
+      }, SetOptions(merge: true));
 
       if (mounted) {
         // Mostrar mensagem de sucesso
@@ -1028,19 +1109,13 @@ class _FormularioAvaliacaoScreenState
           const SnackBar(
             content: Text(
               'Avaliação salva com sucesso!',
-              style: TextStyle(fontSize: 16),
             ),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
           ),
         );
-
-        // Aguardar um pouco e voltar com resultado true
-        await Future.delayed(const Duration(seconds: 1));
-        if (mounted) {
-          Navigator.pop(context, true);
-        }
+        Navigator.pop(context, true); // Retorna true para atualizar o dashboard
       }
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

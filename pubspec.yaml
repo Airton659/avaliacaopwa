@@ -33,6 +33,12 @@ dependencies:
   uuid: ^4.5.1
   signature: ^6.3.0
   firebase_storage: ^12.4.10
+  
+  # Secure Signature
+  image_picker: ^1.0.7
+  geolocator: ^13.0.2
+  device_info_plus: ^11.3.1
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:

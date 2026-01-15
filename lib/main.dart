@@ -60,8 +60,9 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        initialRoute: '/login',
+        initialRoute: '/',
         routes: {
+          '/': (context) => const LoginMatriculaScreen(),
           '/login': (context) => const LoginMatriculaScreen(),
           '/gerenciar-comissao': (context) => const GerenciarComissaoScreen(),
         },

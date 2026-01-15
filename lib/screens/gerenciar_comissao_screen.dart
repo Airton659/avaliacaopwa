@@ -34,6 +34,13 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
           'Gerenciar Comissão',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_today),
+            tooltip: 'Configurar Ciclo',
+            onPressed: _configurarCiclo,
+          ),
+        ],
         backgroundColor: Colors.deepPurple.shade700,
       ),
       body: Column(
@@ -602,6 +609,86 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao remover: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  Future<void> _configurarCiclo() async {
+    // Buscar ciclo atual
+    String cicloAtual = '2026';
+    try {
+      final doc = await _firestore.collection('config').doc('general').get();
+      if (doc.exists && doc.data() != null && doc.data()!.containsKey('currentCycle')) {
+        cicloAtual = doc.data()!['currentCycle'];
+      }
+    } catch (e) {
+      // Ignorar erro e usar padrão
+    }
+
+    final cicloController = TextEditingController(text: cicloAtual);
+
+    if (!mounted) return;
+
+    final novoCiclo = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Configurar Ano de Realização'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Defina o ano de realização da avaliação (ex: 2026).\nIsso afetará todas as novas avaliações e os filtros do dashboard.',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: cicloController,
+              decoration: const InputDecoration(
+                labelText: 'Ano de Realização',
+                hintText: 'AAAA',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, cicloController.text),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+
+    if (novoCiclo == null || novoCiclo.isEmpty || novoCiclo == cicloAtual) return;
+
+    try {
+      await _firestore.collection('config').doc('general').set({
+        'currentCycle': novoCiclo,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ciclo atualizado para $novoCiclo'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar ciclo: $e'),
             backgroundColor: Colors.red,
           ),
         );

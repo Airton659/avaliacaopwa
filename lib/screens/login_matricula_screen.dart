@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dashboard_screen.dart';
+import 'dashboard_gestor_screen.dart';
+import '../models/employee.dart';
 
 class LoginMatriculaScreen extends StatefulWidget {
   const LoginMatriculaScreen({super.key});
@@ -45,10 +47,8 @@ class _LoginMatriculaScreenState extends State<LoginMatriculaScreen> {
       final doc = await _firestore.collection('comissao').doc(matricula).get();
 
       if (!doc.exists) {
-        setState(() {
-          _errorMessage = 'Matrícula não autorizada';
-          _isLoading = false;
-        });
+        // Tentar login como Gestor (Employee)
+        await _tenterLoginGestor(matricula, senha);
         return;
       }
 
@@ -276,5 +276,64 @@ class _LoginMatriculaScreenState extends State<LoginMatriculaScreen> {
         ),
       ),
     );
+  }
+  Future<void> _tenterLoginGestor(String matricula, String senha) async {
+    try {
+      final doc = await _firestore.collection('funcionarios').doc(matricula).get();
+
+      if (!doc.exists) {
+         setState(() {
+          _errorMessage = 'Matrícula não encontrada';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+      final employee = Employee.fromFirestore(data, documentId: doc.id);
+
+      if (!employee.isManager) {
+        setState(() {
+          _errorMessage = 'Acesso restrito a gestores e comissão';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (employee.password == null) {
+         setState(() {
+          _errorMessage = 'Senha não definida. Contate o RH.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (employee.password != senha) {
+        setState(() {
+          _errorMessage = 'Senha incorreta';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Login Gestor Sucesso
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DashboardGestorScreen(
+              userMatricula: employee.id,
+              userName: employee.nome,
+            ),
+          ),
+        );
+      }
+
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao verificar gestor: $e';
+        _isLoading = false;
+      });
+    }
   }
 }

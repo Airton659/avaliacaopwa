@@ -8,6 +8,8 @@ class Employee {
   final String situacao;
   final bool isManager;
   final String? managerId;
+  final String? password;
+  final bool isFirstAccess;
 
   Employee({
     required this.id,
@@ -19,6 +21,8 @@ class Employee {
     required this.situacao,
     this.isManager = false,
     this.managerId,
+    this.password,
+    this.isFirstAccess = true,
   });
 
   bool get isActive => situacao == 'Ativo';
@@ -34,20 +38,24 @@ class Employee {
       'situacao': situacao,
       'isManager': isManager,
       'managerId': managerId,
+      'password': password,
+      'isFirstAccess': isFirstAccess,
     };
   }
 
-  factory Employee.fromFirestore(Map<String, dynamic> data) {
+  factory Employee.fromFirestore(Map<String, dynamic> data, {String? documentId}) {
     return Employee(
-      id: data['id'] as String,
-      nome: data['nome'] as String,
-      admissao: data['admissao'] as String,
-      funcao: data['funcao'] as String,
-      nivel: data['nivel'] as String,
-      faixa: data['faixa'] as String,
-      situacao: data['situacao'] as String,
+      id: documentId ?? data['id']?.toString() ?? '',
+      nome: data['nome']?.toString() ?? '',
+      admissao: data['admissao']?.toString() ?? '',
+      funcao: data['funcao']?.toString() ?? '',
+      nivel: data['nivel']?.toString() ?? '',
+      faixa: data['faixa']?.toString() ?? '',
+      situacao: data['situacao']?.toString() ?? '',
       isManager: data['isManager'] as bool? ?? false,
       managerId: data['managerId'] as String?,
+      password: data['password'] as String?,
+      isFirstAccess: data['isFirstAccess'] as bool? ?? true,
     );
   }
 
@@ -61,6 +69,8 @@ class Employee {
     String? situacao,
     bool? isManager,
     String? managerId,
+    String? password,
+    bool? isFirstAccess,
   }) {
     return Employee(
       id: id ?? this.id,
@@ -72,6 +82,8 @@ class Employee {
       situacao: situacao ?? this.situacao,
       isManager: isManager ?? this.isManager,
       managerId: managerId ?? this.managerId,
+      password: password ?? this.password,
+      isFirstAccess: isFirstAccess ?? this.isFirstAccess,
     );
   }
 }

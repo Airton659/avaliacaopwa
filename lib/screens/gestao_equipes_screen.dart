@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/situacao_helper.dart';
+import 'dashboard_gestor_screen.dart';
 
 class GestaoEquipesScreen extends StatefulWidget {
   const GestaoEquipesScreen({super.key});
@@ -558,6 +559,11 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                           ],
                         ),
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.vpn_key, color: Colors.white),
+                        tooltip: 'Definir Senha de Acesso',
+                        onPressed: () => _definirSenhaGestor(gestorChapa, gestorData),
+                      ),
                       const Icon(Icons.edit, color: Colors.white, size: 24),
                       const SizedBox(width: 8),
                       if (subordinados.isEmpty)
@@ -853,6 +859,55 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _definirSenhaGestor(String chapa, Map<String, dynamic> data) async {
+    final passwordController = TextEditingController();
+    
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Definir Senha - ${data['nome']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Esta senha será usada pelo gestor para acessar o painel de avaliações.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Nova Senha',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (passwordController.text.isNotEmpty) {
+                 await _firestore.collection('funcionarios').doc(chapa).update({
+                   'password': passwordController.text,
+                   'isFirstAccess': true, // Força troca de senha ou fluxo inicial se quisermos
+                 });
+                 if (mounted) {
+                   Navigator.pop(context);
+                   ScaffoldMessenger.of(context).showSnackBar(
+                     const SnackBar(content: Text('Senha definida com sucesso!')),
+                   );
+                 }
+              }
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
       ),
     );
   }

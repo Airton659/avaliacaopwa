@@ -3,7 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import 'formulario_avaliacao_screen.dart';
+import 'formulario_avaliacao_screen.dart';
 import 'signature_screen.dart';
+import 'dashboard_gestor_screen.dart';
 import '../utils/situacao_helper.dart';
 
 class AvaliacaoGestorScreen extends StatefulWidget {
@@ -220,7 +222,17 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: InkWell(
-            onTap: () => _abrirModalSenha(chapa, data),
+            onTap: () {
+               Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DashboardGestorScreen(
+                    userMatricula: chapa,
+                    userName: data['nome'] ?? '',
+                  ),
+                ),
+              );
+            },
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: const EdgeInsets.all(16),
