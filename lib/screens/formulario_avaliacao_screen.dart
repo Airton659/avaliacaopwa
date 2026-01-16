@@ -47,6 +47,9 @@ class _FormularioAvaliacaoScreenState
   List<Map<String, dynamic>> _questoes = [];
 
   bool _isReadOnly = false;
+  String? _signatureUrl;
+  String? _photoUrl;
+  Map<String, dynamic>? _signatureMetadata;
 
   @override
   void initState() {
@@ -87,9 +90,14 @@ class _FormularioAvaliacaoScreenState
              if (data['respostas'] != null) {
                _respostas.addAll(Map<String, int>.from(data['respostas']));
              }
-             if (data['observacoes'] != null) {
-               _obsController.text = data['observacoes'];
-             }
+               if (data['observacoes'] != null) {
+                 _obsController.text = data['observacoes'];
+               }
+               _signatureUrl = data['signatureUrl'];
+               _photoUrl = data['managerPhotoUrl'] ?? data['photoUrl']; // Tenta managerPhotoUrl primeiro, fallback para photoUrl
+               if (data['managerSignatureMetadata'] != null) {
+                 _signatureMetadata = Map<String, dynamic>.from(data['managerSignatureMetadata']);
+               }
            });
         }
       }
@@ -632,6 +640,115 @@ class _FormularioAvaliacaoScreenState
               ),
             ),
 
+            // Exibir Provas (Assinatura e Foto) se for ReadOnly (Comissão visualizando)
+            if (_isReadOnly && (_signatureUrl != null || _photoUrl != null))
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  border: Border.all(color: Colors.green.shade700),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.verified, color: Colors.green.shade700),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Avaliação Assinada e Validada',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                         if (_photoUrl != null) ...[
+                            Column(
+                              children: [
+                                const Text('Foto do Avaliador', style: TextStyle(fontWeight: FontWeight.w500)),
+                                const SizedBox(height: 8),
+                                Container(
+                                  height: 100,
+                                  width: 80,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      _photoUrl!, 
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 24),
+                         ],
+                         if (_signatureUrl != null) ...[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Assinatura Digital', style: TextStyle(fontWeight: FontWeight.w500)),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 100,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      border: Border.all(color: Colors.grey),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        _signatureUrl!, 
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                         ],
+                      ],
+                    ),
+                  ],
+                ),
+
+              ),
+              
+
+              if (_signatureMetadata != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Center(
+                    child: TextButton.icon(
+                      onPressed: _mostrarDetalhesAssinatura,
+                      icon: const Icon(Icons.info_outline, size: 20),
+                      label: const Text('Ver Detalhes da Auditoria'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.green.shade800,
+                      ),
+                    ),
+                  ),
+                ),
+
+
+
             // Instruções
             Padding(
               padding: const EdgeInsets.all(20),
@@ -1134,7 +1251,92 @@ class _FormularioAvaliacaoScreenState
           _isSubmitting = false;
         });
       }
+
+
+      }
     }
+
+
+
+  void _mostrarDetalhesAssinatura() {
+    if (_signatureMetadata == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.security, color: Colors.blue.shade900),
+            const SizedBox(width: 8),
+            const Text('Auditoria Digital'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildMetadataRow('IP de Origem', _signatureMetadata!['ip'] ?? 'N/A', Icons.public),
+              const Divider(),
+              _buildMetadataRow(
+                'Geolocalização', 
+                _signatureMetadata!['latitude'] != null 
+                  ? '${_signatureMetadata!['latitude']}, ${_signatureMetadata!['longitude']}'
+                  : 'N/A', 
+                Icons.location_on
+              ),
+              const Divider(),
+              _buildMetadataRow('Dispositivo', _signatureMetadata!['device'] ?? 'N/A', Icons.devices),
+              const Divider(),
+              _buildMetadataRow(
+                'Data/Hora (Servidor)', 
+                _signatureMetadata!['timestamp'] != null 
+                  ? DateFormat('dd/MM/yyyy HH:mm:ss').format((_signatureMetadata!['timestamp'] as Timestamp).toDate())
+                  : 'N/A',
+                Icons.access_time
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  Widget _buildMetadataRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatarDataAdmissao(dynamic dataAdmissao) {

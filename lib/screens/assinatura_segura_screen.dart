@@ -45,8 +45,9 @@ class _AssinaturaSeguraScreenState extends State<AssinaturaSeguraScreen> {
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 600,
-        imageQuality: 80,
+        maxWidth: 400,
+        maxHeight: 400,
+        imageQuality: 50,
       );
 
       if (photo != null) {
