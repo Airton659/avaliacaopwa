@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'formulario_avaliacao_screen.dart';
+import '../utils/password_helper.dart';
 import '../utils/situacao_helper.dart';
 
 class AutoavaliacaoScreen extends StatefulWidget {
   final String userMatricula;
+  final bool isComissao;
 
   const AutoavaliacaoScreen({
     super.key,
     required this.userMatricula,
+    this.isComissao = false,
   });
 
   @override
@@ -238,7 +241,7 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                         Text(
                           nome,
                           style: const TextStyle(
-                            fontSize: 20,
+                            fontSize: 18, // Reduced slightly to help fit
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -246,14 +249,14 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                         Text(
                           '$funcao - Nível $nivel',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             color: Colors.grey.shade700,
                           ),
                         ),
                         Text(
                           'Chapa: $chapa',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 12,
                             color: Colors.grey.shade500,
                           ),
                         ),
@@ -266,33 +269,72 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  if (jaAvaliou)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                          const SizedBox(width: 6),
-                          Text(
-                            avaliacaoData['displayInfo'] ?? 'Concluído',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                        if (jaAvaliou) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.1),
+                              border: Border.all(color: Colors.green),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check_circle, size: 14, color: Colors.green),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    avaliacaoData['displayInfo'] ?? 'Concluído',
+                                    style: const TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (jaAvaliou && avaliacaoData['status'] == 'concluida')
+                  if (jaAvaliou && avaliacaoData['status'] == 'concluida')
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.isComissao)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ElevatedButton(
+                              onPressed: () => _confirmarLiberacaoReavaliacao(chapa, data),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange.shade700,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: const Size(0, 36),
+                              ),
+                              child: const Icon(Icons.restore, size: 18),
+                            ),
+                          ),
+                        ElevatedButton(
+                          onPressed: () => _showPasswordDialog(chapa, data),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            minimumSize: const Size(0, 36),
+                          ),
+                          child: const Text('Visualizar', style: TextStyle(fontSize: 13)),
+                        ),
+                      ],
                     )
                   else
                     const Icon(
@@ -337,6 +379,7 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
       return {
         ...data,
         'displayInfo': displayInfo,
+        'status': data['status'],
       };
     } catch (e) {
       return null;
@@ -425,7 +468,7 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
       if (!comissaoDoc.exists) return false;
 
       final senhaComissao = comissaoDoc.data()?['senha'] ?? '';
-      return password == senhaComissao;
+      return PasswordHelper.checkPassword(password, senhaComissao);
     } catch (e) {
       return false;
     }
@@ -449,6 +492,91 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
       // Atualiza a lista quando voltar
       setState(() {});
     });
+  }
+
+  Future<void> _confirmarLiberacaoReavaliacao(String chapa, Map<String, dynamic> data) async {
+    final passwordController = TextEditingController();
+    String? errorMessage;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Confirmar Liberação'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Deseja realmente EXCLUIR a avaliação de ${data['nome']}?'),
+              const SizedBox(height: 10),
+              const Text(
+                'Esta ação não pode ser desfeita. Digite sua senha para confirmar:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Sua Senha',
+                  border: const OutlineInputBorder(),
+                  errorText: errorMessage,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final valid = await _validatePassword(passwordController.text);
+                if (valid) {
+                  if (context.mounted) Navigator.pop(dialogContext, true);
+                } else {
+                  setState(() {
+                    errorMessage = 'Senha incorreta';
+                  });
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              child: const Text('Liberar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      await _liberarReavaliacao(chapa);
+    }
+  }
+
+  Future<void> _liberarReavaliacao(String chapa) async {
+    try {
+      final configDoc = await _firestore.collection('config').doc('general').get();
+      final cycle = configDoc.data()?['currentCycle'] ?? '2024/2025';
+      final year = cycle.split('/')[0];
+      final docId = '${year}_${chapa}_AUTO';
+
+      await _firestore.collection('evaluations').doc(docId).delete();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Avaliação liberada com sucesso!'), backgroundColor: Colors.green),
+        );
+        setState(() {}); // Recarregar lista
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao liberar avaliação: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override

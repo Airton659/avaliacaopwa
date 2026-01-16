@@ -6,7 +6,7 @@
     "background_color": "#1976D2",
     "theme_color": "#1976D2",
     "description": "Sistema de Avaliação de Desempenho - Empresa de Desenvolvimento de Itabira",
-    "orientation": "landscape",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

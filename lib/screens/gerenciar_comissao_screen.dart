@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/situacao_helper.dart';
+import '../utils/password_helper.dart';
 
 class GerenciarComissaoScreen extends StatefulWidget {
   const GerenciarComissaoScreen({super.key});
@@ -174,11 +175,25 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
                       return const Center(child: CircularProgressIndicator());
                     }
 
+
                     // Filtrar apenas funcionários ativos
                     var funcionarios = funcionariosSnapshot.data!.docs.where((doc) {
                       final data = doc.data() as Map<String, dynamic>;
                       return data['ativo'] == true;
                     }).toList();
+
+                    // Criar mapa de comissão PRIMEIRO para usar no filtro depois
+                    final comissaoMap = <String, Map<String, dynamic>>{};
+                    for (var doc in comissaoSnapshot.data!.docs) {
+                      comissaoMap[doc.id] = doc.data() as Map<String, dynamic>;
+                    }
+
+                    // Se não houver busca, mostrar APENAS quem já está na comissão
+                    if (_searchQuery.isEmpty) {
+                      funcionarios = funcionarios.where((doc) {
+                        return comissaoMap.containsKey(doc.id);
+                      }).toList();
+                    }
 
                     // Coletar situações únicas dos funcionários ativos
                     final situacoesDisponiveis = <String>{};
@@ -209,11 +224,7 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
                       }).toList();
                     }
 
-                    // Criar mapa de comissão
-                    final comissaoMap = <String, Map<String, dynamic>>{};
-                    for (var doc in comissaoSnapshot.data!.docs) {
-                      comissaoMap[doc.id] = doc.data() as Map<String, dynamic>;
-                    }
+                    // (Mapa já criado acima)
 
                     if (funcionarios.isEmpty) {
                       return const Center(
@@ -451,9 +462,10 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
     try {
       await _firestore.collection('comissao').doc(chapa).set({
         'matricula': chapa,
-        'senha': senha,
+        'senha': PasswordHelper.hashPassword(senha),
         'ativo': true,
         'isSuperAdmin': false,
+        'isFirstAccess': true, // Forçar troca de senha no primeiro acesso
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -517,7 +529,7 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
 
     try {
       await _firestore.collection('comissao').doc(chapa).update({
-        'senha': novaSenha,
+        'senha': PasswordHelper.hashPassword(novaSenha),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 

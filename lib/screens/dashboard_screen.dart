@@ -4,6 +4,7 @@ import 'avaliacao_gestor_screen.dart';
 import 'central_impressao_screen.dart';
 import 'config_menu_screen.dart';
 import 'gestao_equipes_screen.dart';
+import 'trocar_senha_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final String userMatricula;
@@ -51,6 +52,17 @@ class DashboardScreen extends StatelessWidget {
                 );
               } else if (value == 'comissao') {
                 Navigator.pushNamed(context, '/gerenciar-comissao');
+              } else if (value == 'senha') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TrocarSenhaScreen(
+                      userMatricula: userMatricula,
+                      collection: 'comissao',
+                      isSuperAdmin: isSuperAdmin,
+                    ),
+                  ),
+                );
               }
             },
             itemBuilder: (context) => [
@@ -85,6 +97,16 @@ class DashboardScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+               const PopupMenuItem(
+                 value: 'senha',
+                 child: Row(
+                   children: [
+                     Icon(Icons.lock_reset, size: 28),
+                     SizedBox(width: 12),
+                     Text('Alterar Senha', style: TextStyle(fontSize: 16)),
+                   ],
+                 ),
+               ),
             ],
           ),
           IconButton(
@@ -116,6 +138,7 @@ class DashboardScreen extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (context) => AutoavaliacaoScreen(
                               userMatricula: userMatricula,
+                              isComissao: true,
                             ),
                           ),
                         );
@@ -135,6 +158,7 @@ class DashboardScreen extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (context) => AvaliacaoGestorScreen(
                               userMatricula: userMatricula,
+                              isComissao: true,
                             ),
                           ),
                         );
@@ -181,6 +205,7 @@ class DashboardScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (context) => AutoavaliacaoScreen(
                             userMatricula: userMatricula,
+                            isComissao: true,
                           ),
                         ),
                       );
@@ -201,6 +226,7 @@ class DashboardScreen extends StatelessWidget {
                         MaterialPageRoute(
                           builder: (context) => AvaliacaoGestorScreen(
                             userMatricula: userMatricula,
+                            isComissao: true,
                           ),
                         ),
                       );

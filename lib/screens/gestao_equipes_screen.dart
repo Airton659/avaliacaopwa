@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/situacao_helper.dart';
 import 'dashboard_gestor_screen.dart';
+import '../utils/password_helper.dart';
 
 class GestaoEquipesScreen extends StatefulWidget {
   const GestaoEquipesScreen({super.key});
@@ -196,7 +197,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                             itemBuilder: (context, index) {
                               final doc = semGestor[index];
                               final data = doc.data() as Map<String, dynamic>;
-                              return _buildFuncionarioCard(doc.id, data);
+                              return _buildFuncionarioCard(doc.id, data, enableDrag: false);
                             },
                           ),
                         ),
@@ -325,7 +326,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
                                 itemBuilder: (context, index) {
                                   final doc = semGestor[index];
                                   final data = doc.data() as Map<String, dynamic>;
-                                  return _buildFuncionarioCard(doc.id, data);
+                                  return _buildFuncionarioCard(doc.id, data, enableDrag: true);
                                 },
                               ),
                             ),
@@ -378,7 +379,13 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
     );
   }
 
-  Widget _buildFuncionarioCard(String chapa, Map<String, dynamic> data) {
+  Widget _buildFuncionarioCard(String chapa, Map<String, dynamic> data, {required bool enableDrag}) {
+    final content = _buildCardContent(data, false);
+
+    if (!enableDrag) {
+      return content;
+    }
+
     return Draggable<String>(
       data: chapa,
       feedback: Material(
@@ -424,9 +431,9 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
       ),
       childWhenDragging: Opacity(
         opacity: 0.3,
-        child: _buildCardContent(data, false),
+        child: content,
       ),
-      child: _buildCardContent(data, false),
+      child: content,
     );
   }
 
@@ -894,7 +901,7 @@ class _GestaoEquipesScreenState extends State<GestaoEquipesScreen> {
             onPressed: () async {
               if (passwordController.text.isNotEmpty) {
                  await _firestore.collection('funcionarios').doc(chapa).update({
-                   'password': passwordController.text,
+                   'password': PasswordHelper.hashPassword(passwordController.text),
                    'isFirstAccess': true, // Força troca de senha ou fluxo inicial se quisermos
                  });
                  if (mounted) {

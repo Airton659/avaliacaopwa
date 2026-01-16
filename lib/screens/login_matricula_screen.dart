@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dashboard_screen.dart';
 import 'dashboard_gestor_screen.dart';
 import '../models/employee.dart';
+import '../utils/password_helper.dart';
+import 'trocar_senha_screen.dart';
 
 class LoginMatriculaScreen extends StatefulWidget {
   const LoginMatriculaScreen({super.key});
@@ -64,7 +66,7 @@ class _LoginMatriculaScreenState extends State<LoginMatriculaScreen> {
       }
 
       // Verificar senha
-      if (data['senha'] != senha) {
+      if (!PasswordHelper.checkPassword(senha, data['senha'])) {
         setState(() {
           _errorMessage = 'Senha incorreta';
           _isLoading = false;
@@ -74,15 +76,29 @@ class _LoginMatriculaScreenState extends State<LoginMatriculaScreen> {
 
       // Login bem-sucedido
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DashboardScreen(
-              userMatricula: matricula,
-              isSuperAdmin: data['isSuperAdmin'] == true,
+        if (data['isFirstAccess'] == true) {
+           Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TrocarSenhaScreen(
+                userMatricula: matricula,
+                collection: 'comissao',
+                isFirstAccess: true,
+                isSuperAdmin: data['isSuperAdmin'] == true,
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DashboardScreen(
+                userMatricula: matricula,
+                isSuperAdmin: data['isSuperAdmin'] == true,
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       setState(() {
@@ -308,7 +324,7 @@ class _LoginMatriculaScreenState extends State<LoginMatriculaScreen> {
         return;
       }
 
-      if (employee.password != senha) {
+      if (!PasswordHelper.checkPassword(senha, employee.password)) {
         setState(() {
           _errorMessage = 'Senha incorreta';
           _isLoading = false;
@@ -318,15 +334,29 @@ class _LoginMatriculaScreenState extends State<LoginMatriculaScreen> {
 
       // Login Gestor Sucesso
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DashboardGestorScreen(
-              userMatricula: employee.id,
-              userName: employee.nome,
+        if (employee.isFirstAccess) { // Assuming Employee model has this field, checking raw data if not
+           Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TrocarSenhaScreen(
+                userMatricula: employee.id,
+                collection: 'funcionarios',
+                isFirstAccess: true,
+                userName: employee.nome,
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DashboardGestorScreen(
+                userMatricula: employee.id,
+                userName: employee.nome,
+              ),
+            ),
+          );
+        }
       }
 
     } catch (e) {

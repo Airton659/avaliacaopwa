@@ -4,15 +4,21 @@ import '../models/employee.dart';
 import 'formulario_avaliacao_screen.dart';
 import 'assinatura_segura_screen.dart';
 import 'package:intl/intl.dart';
+import '../utils/password_helper.dart';
+import 'trocar_senha_screen.dart';
 
 class DashboardGestorScreen extends StatefulWidget {
   final String userMatricula;
   final String userName;
+  final bool isComissao;
+  final String? loggedUserMatricula;
 
   const DashboardGestorScreen({
     super.key,
     required this.userMatricula,
     required this.userName,
+    this.isComissao = false,
+    this.loggedUserMatricula,
   });
 
   @override
@@ -29,10 +35,47 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
       appBar: AppBar(
         title: const Text('Minha Equipe'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: () => Navigator.of(context)
-                .pushNamedAndRemoveUntil('/', (route) => false),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'sair') {
+                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+              } else if (value == 'senha') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TrocarSenhaScreen(
+                      userMatricula: widget.userMatricula,
+                      collection: 'funcionarios', // Gestor é funcionario
+                      userName: widget.userName,
+                    ),
+                  ),
+                );
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'senha',
+                  child: Row(
+                    children: [
+                      Icon(Icons.lock_reset, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text('Alterar Senha'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'sair',
+                  child: Row(
+                    children: [
+                      Icon(Icons.exit_to_app, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Sair'),
+                    ],
+                  ),
+                ),
+              ];
+            },
           ),
         ],
       ),
@@ -143,29 +186,41 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
                                       ),
                                   ],
                                 ),
-                                trailing: ElevatedButton(
-                                  child: Text(status == 'concluida'
-                                      ? 'Visualizar'
-                                      : 'Avaliar'),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            FormularioAvaliacaoScreen(
-                                          chapa: employeeId,
-                                          employeeData: employeeData,
-                                          authorMatricula: widget.userMatricula,
-                                          isGerencial: false,
-                                          isAutoavaliacao: false,
-                                          allowSaveWithoutSignature: true,
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (widget.isComissao && status != 'pendente')
+                                        Padding(
+                                          padding: const EdgeInsets.only(right: 8),
+                                          child: ElevatedButton(
+                                            onPressed: () => _confirmarLiberacaoReavaliacao(evalId!, employeeData['nome']),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.orange.shade700,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              minimumSize: const Size(0, 36),
+                                            ),
+                                            child: const Icon(Icons.restore, size: 18),
+                                          ),
                                         ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blue.shade700,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                        child: Text(status == 'concluida'
+                                            ? 'Visualizar'
+                                            : 'Avaliar'),
+                                        onPressed: () {
+                                          if (status != 'concluida' && widget.isComissao) {
+                                            _verificarSenhaParaAvaliar(employeeId, employeeData);
+                                          } else {
+                                            _navegarParaAvaliacao(employeeId, employeeData);
+                                          }
+                                        },
                                       ),
-                                    ).then((value) {
-                                      // Recarregar se necessário (Stream cuida disso)
-                                    });
-                                  },
-                                ),
+                                    ],
+                                  ),
                               ),
                             );
                           },
@@ -222,6 +277,175 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
             content: Text('Avaliações assinadas com sucesso!'),
             backgroundColor: Colors.green,
           ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmarLiberacaoReavaliacao(String evalId, String empName) async {
+    final passwordController = TextEditingController();
+    String? errorMessage;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Confirmar Liberação'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Deseja realmente EXCLUIR a avaliação de $empName?'),
+              const SizedBox(height: 10),
+              const Text(
+                'Esta ação não pode ser desfeita. Digite sua senha para confirmar:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Sua Senha',
+                  border: const OutlineInputBorder(),
+                  errorText: errorMessage,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final valid = await _validatePassword(passwordController.text);
+                if (valid) {
+                  if (context.mounted) Navigator.pop(dialogContext, true);
+                } else {
+                  setState(() {
+                    errorMessage = 'Senha incorreta';
+                  });
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              child: const Text('Liberar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      await _liberarReavaliacao(evalId);
+    }
+  }
+
+  Future<void> _verificarSenhaParaAvaliar(String employeeId, Map<String, dynamic> employeeData) async {
+    final authorized = await _solicitarSenha();
+    if (authorized) {
+      _navegarParaAvaliacao(employeeId, employeeData);
+    }
+  }
+
+  void _navegarParaAvaliacao(String employeeId, Map<String, dynamic> employeeData) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FormularioAvaliacaoScreen(
+          chapa: employeeId,
+          employeeData: employeeData,
+          authorMatricula: widget.userMatricula, // Manager is Author
+          isGerencial: false,
+          isAutoavaliacao: false,
+          allowSaveWithoutSignature: true,
+        ),
+      ),
+    ).then((value) {
+      // Recarregar se necessário
+    });
+  }
+
+  Future<bool> _solicitarSenha() async {
+    if (widget.loggedUserMatricula == null) return false;
+
+    final passwordController = TextEditingController();
+    String? errorMessage;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Confirmação de Segurança'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Digite sua senha para continuar:'),
+              const SizedBox(height: 20),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Senha',
+                  border: const OutlineInputBorder(),
+                  errorText: errorMessage,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final valid = await _validatePassword(passwordController.text);
+                if (valid) {
+                  if (context.mounted) Navigator.pop(dialogContext, true);
+                } else {
+                  setState(() {
+                    errorMessage = 'Senha incorreta';
+                  });
+                }
+              },
+              child: const Text('Confirmar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return result ?? false;
+  }
+
+  Future<bool> _validatePassword(String password) async {
+    try {
+      final doc = await _firestore.collection('comissao').doc(widget.loggedUserMatricula).get();
+      if (!doc.exists) return false;
+      return PasswordHelper.checkPassword(password, doc.data()?['senha']);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> _liberarReavaliacao(String evalId) async {
+    try {
+      await _firestore.collection('evaluations').doc(evalId).delete();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Avaliação liberada com sucesso!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao liberar avaliação: $e'), backgroundColor: Colors.red),
         );
       }
     }

@@ -7,13 +7,16 @@ import 'formulario_avaliacao_screen.dart';
 import 'signature_screen.dart';
 import 'dashboard_gestor_screen.dart';
 import '../utils/situacao_helper.dart';
+import '../utils/password_helper.dart';
 
 class AvaliacaoGestorScreen extends StatefulWidget {
   final String userMatricula;
+  final bool isComissao;
 
   const AvaliacaoGestorScreen({
     super.key,
     required this.userMatricula,
+    this.isComissao = false,
   });
 
   @override
@@ -229,6 +232,8 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                   builder: (context) => DashboardGestorScreen(
                     userMatricula: chapa,
                     userName: data['nome'] ?? '',
+                    isComissao: widget.isComissao,
+                    loggedUserMatricula: widget.userMatricula,
                   ),
                 ),
               );
@@ -426,7 +431,7 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
       if (!comissaoDoc.exists) return false;
 
       final senhaComissao = comissaoDoc.data()?['senha'] ?? '';
-      return senha == senhaComissao;
+      return PasswordHelper.checkPassword(senha, senhaComissao);
     } catch (e) {
       return false;
     }
