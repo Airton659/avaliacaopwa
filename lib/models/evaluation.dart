@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'employee_snapshot.dart';
 import 'evaluation_type.dart';
 
@@ -9,6 +10,7 @@ class Evaluation {
   final String? obs;
   final EmployeeSnapshot employeeSnapshot;
   final DateTime createdAt;
+  final String? signatureUrl;
 
   Evaluation({
     required this.id,
@@ -18,6 +20,7 @@ class Evaluation {
     this.obs,
     required this.employeeSnapshot,
     DateTime? createdAt,
+    this.signatureUrl,
   }) : createdAt = createdAt ?? DateTime.now();
 
   static String generateId(int year, String employeeId, EvaluationType type) {
@@ -39,20 +42,55 @@ class Evaluation {
       'obs': obs,
       'employeeSnapshot': employeeSnapshot.toMap(),
       'createdAt': createdAt.toIso8601String(),
+      'signatureUrl': signatureUrl,
     };
   }
 
   factory Evaluation.fromFirestore(Map<String, dynamic> data) {
+    // Handle Year (int or String, 'year' or 'ano' or 'ciclo')
+    int parsedYear = DateTime.now().year;
+    if (data['year'] != null) {
+      parsedYear = int.tryParse(data['year'].toString()) ?? parsedYear;
+    } else if (data['ano'] != null) {
+      parsedYear = int.tryParse(data['ano'].toString()) ?? parsedYear;
+    } else if (data['ciclo'] != null) {
+      parsedYear = int.tryParse(data['ciclo'].toString()) ?? parsedYear;
+    }
+
+    // Handle CreatedAt (Timestamp or String or null)
+    DateTime parsedCreatedAt = DateTime.now();
+    if (data['createdAt'] != null) {
+       if (data['createdAt'] is Function) { 
+          // Firestore sometimes returns a FieldValue.serverTimestamp() placeholder locally before sync
+          // Ignore
+       } else if (data.toString().contains('Timestamp')) { // Runtime check if it's cloud_firestore Value
+          // Dynamic invocation to avoid direct dependency if type not imported
+          // But we have Timestamp imported in other files.
+          // Better: Check try/catch
+          try {
+             parsedCreatedAt = data['createdAt'].toDate();
+          } catch (_) {
+             parsedCreatedAt = DateTime.tryParse(data['createdAt'].toString()) ?? DateTime.now();
+          }
+       } else {
+          parsedCreatedAt = DateTime.tryParse(data['createdAt'].toString()) ?? DateTime.now();
+       }
+    }
+
+    // Handle ID (might be missing in data, usually doc.id passed separately but here we accept data)
+    final id = data['id']?.toString() ?? '${parsedYear}_${data['employeeId'] ?? 'unknown'}_${data['tipo'] ?? 'UNKNOWN'}';
+
     return Evaluation(
-      id: data['id'] as String,
-      year: data['year'] as int,
-      type: EvaluationType.fromCode(data['type'] as String),
-      answers: Map<String, int>.from(data['answers'] as Map),
-      obs: data['obs'] as String?,
+      id: id,
+      year: parsedYear,
+      type: EvaluationType.fromCode(data['tipo'] as String? ?? 'AUTO_OPERACIONAL'),
+      answers: Map<String, int>.from(data['respostas'] as Map? ?? data['answers'] as Map? ?? {}),
+      obs: data['obs'] as String? ?? data['observacoes'] as String?,
       employeeSnapshot: EmployeeSnapshot.fromMap(
-        data['employeeSnapshot'] as Map<String, dynamic>,
+        data['employeeSnapshot'] as Map<String, dynamic>? ?? {},
       ),
-      createdAt: DateTime.parse(data['createdAt'] as String),
+      createdAt: parsedCreatedAt,
+      signatureUrl: data['signatureUrl'] as String?,
     );
   }
 }

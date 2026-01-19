@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Employee {
   final String id; // CHAPA
   final String nome;
@@ -10,6 +12,9 @@ class Employee {
   final String? managerId;
   final String? password;
   final bool isFirstAccess;
+  final String? escolaridadeIngresso;
+  final String? escolaridadeAtual;
+  final String? vencimento;
 
   Employee({
     required this.id,
@@ -23,6 +28,9 @@ class Employee {
     this.managerId,
     this.password,
     this.isFirstAccess = true,
+    this.escolaridadeIngresso,
+    this.escolaridadeAtual,
+    this.vencimento,
   });
 
   bool get isActive => situacao == 'Ativo';
@@ -40,14 +48,26 @@ class Employee {
       'managerId': managerId,
       'password': password,
       'isFirstAccess': isFirstAccess,
+      'escolaridadeIngresso': escolaridadeIngresso,
+      'escolaridadeAtual': escolaridadeAtual,
+      'vencimento': vencimento,
     };
   }
 
   factory Employee.fromFirestore(Map<String, dynamic> data, {String? documentId}) {
+    // Helper to format Timestamp
+    String formatTimestamp(dynamic val) {
+      if (val is Timestamp) {
+        final dt = val.toDate();
+        return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      }
+      return val?.toString() ?? '';
+    }
+
     return Employee(
-      id: documentId ?? data['id']?.toString() ?? '',
+      id: documentId ?? data['chapa']?.toString() ?? data['id']?.toString() ?? '',
       nome: data['nome']?.toString() ?? '',
-      admissao: data['admissao']?.toString() ?? '',
+      admissao: formatTimestamp(data['data_admissao']) != '' ? formatTimestamp(data['data_admissao']) : (data['admissao']?.toString() ?? ''),
       funcao: data['funcao']?.toString() ?? '',
       nivel: data['nivel']?.toString() ?? '',
       faixa: data['faixa']?.toString() ?? '',
@@ -56,6 +76,9 @@ class Employee {
       managerId: data['managerId'] as String?,
       password: data['password'] as String?,
       isFirstAccess: data['isFirstAccess'] as bool? ?? true,
+      escolaridadeIngresso: data['escolaridadeIngresso'] as String?,
+      escolaridadeAtual: data['escolaridade']?.toString() ?? data['escolaridadeAtual'] as String?,
+      vencimento: data['salario']?.toString() ?? data['vencimento'] as String?,
     );
   }
 
@@ -71,6 +94,9 @@ class Employee {
     String? managerId,
     String? password,
     bool? isFirstAccess,
+    String? escolaridadeIngresso,
+    String? escolaridadeAtual,
+    String? vencimento,
   }) {
     return Employee(
       id: id ?? this.id,
@@ -84,6 +110,9 @@ class Employee {
       managerId: managerId ?? this.managerId,
       password: password ?? this.password,
       isFirstAccess: isFirstAccess ?? this.isFirstAccess,
+      escolaridadeIngresso: escolaridadeIngresso ?? this.escolaridadeIngresso,
+      escolaridadeAtual: escolaridadeAtual ?? this.escolaridadeAtual,
+      vencimento: vencimento ?? this.vencimento,
     );
   }
 }

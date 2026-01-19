@@ -54,8 +54,12 @@ class _FormularioAvaliacaoScreenState
   @override
   void initState() {
     super.initState();
-    _carregarPerguntas();
-    _verificarAvaliacaoExistente();
+    _inicializarDados();
+  }
+
+  Future<void> _inicializarDados() async {
+    await _carregarPerguntas();
+    await _verificarAvaliacaoExistente();
   }
 
   Future<void> _verificarAvaliacaoExistente() async {
@@ -88,7 +92,29 @@ class _FormularioAvaliacaoScreenState
              _isReadOnly = true;
              // Carregar respostas para visualização
              if (data['respostas'] != null) {
-               _respostas.addAll(Map<String, int>.from(data['respostas']));
+               final rawRespostas = Map<String, int>.from(data['respostas']);
+               
+               // Migração de chaves antigas (q0, q1) para IDs (FKs)
+               // Criar lista plana de IDs na ordem correta para mapear índices
+               final List<String> orderedIds = [];
+               for (var secao in _questoes) {
+                 for (var p in secao['perguntas']) {
+                   orderedIds.add(p['id']);
+                 }
+               }
+
+               rawRespostas.forEach((key, value) {
+                 if (key.startsWith('q') && int.tryParse(key.substring(1)) != null) {
+                   // É chave legada (q0, q1...)
+                   final index = int.tryParse(key.substring(1))!;
+                   if (index < orderedIds.length) {
+                     _respostas[orderedIds[index]] = value;
+                   }
+                 } else {
+                   // É chave nova (ID)
+                   _respostas[key] = value;
+                 }
+               });
              }
                if (data['observacoes'] != null) {
                  _obsController.text = data['observacoes'];
@@ -137,13 +163,14 @@ class _FormularioAvaliacaoScreenState
       });
 
       // Agrupar perguntas por seção e subseção
-      final Map<String, Map<String, List<String>>> agrupadas = {};
+      final Map<String, Map<String, List<Map<String, dynamic>>>> agrupadas = {};
 
       for (var doc in docs) {
         final data = doc.data();
         final secao = data['secao'] ?? '';
         final subsecao = data['subsecao'] ?? '';
-        final pergunta = data['pergunta'] ?? '';
+        final perguntaTexto = data['pergunta'] ?? '';
+        final perguntaId = doc.id; // USAR ID DO DOCUMENTO
 
         if (!agrupadas.containsKey(secao)) {
           agrupadas[secao] = {};
@@ -151,7 +178,10 @@ class _FormularioAvaliacaoScreenState
         if (!agrupadas[secao]!.containsKey(subsecao)) {
           agrupadas[secao]![subsecao] = [];
         }
-        agrupadas[secao]![subsecao]!.add(pergunta);
+        agrupadas[secao]![subsecao]!.add({
+          'id': perguntaId,
+          'texto': perguntaTexto,
+        });
       }
 
       // Converter para formato esperado
@@ -249,44 +279,44 @@ class _FormularioAvaliacaoScreenState
       'secao': 'I - Fatores comportamentais',
       'subsecao': 'I.1 - Discrição',
       'perguntas': [
-        'comportamento discreto em suas relações de trabalho',
-        'discrição em relação a fatos ocorridos no setor de trabalho',
-        'atitude respeitosa em relação à chefia, a colegas e ao público',
-        'guarda responsável de documentos e informações sigilosos',
+        {'id': 'op_1_1', 'texto': 'comportamento discreto em suas relações de trabalho'},
+        {'id': 'op_1_2', 'texto': 'discrição em relação a fatos ocorridos no setor de trabalho'},
+        {'id': 'op_1_3', 'texto': 'atitude respeitosa em relação à chefia, a colegas e ao público'},
+        {'id': 'op_1_4', 'texto': 'guarda responsável de documentos e informações sigilosos'},
       ],
     },
     {
       'secao': 'I - Fatores comportamentais',
       'subsecao': 'I.2 - Assiduidade',
       'perguntas': [
-        'assiduidade ao trabalho (frequência mínima de 95%)',
-        'pontualidade no cumprimento de horários',
-        'permanência regular no local de trabalho',
-        'atenção no exercício das funções',
+        {'id': 'op_2_1', 'texto': 'assiduidade ao trabalho (frequência mínima de 95%)'},
+        {'id': 'op_2_2', 'texto': 'pontualidade no cumprimento de horários'},
+        {'id': 'op_2_3', 'texto': 'permanência regular no local de trabalho'},
+        {'id': 'op_2_4', 'texto': 'atenção no exercício das funções'},
       ],
     },
     {
       'secao': 'I - Fatores comportamentais',
       'subsecao': 'I.3 - Disciplina',
       'perguntas': [
-        'presteza no cumprimento de ordens',
-        'administração do tempo e cumprimento de prazos',
-        'uso adequado de equipamentos e instalações',
-        'adaptação a trabalhos em equipe',
-        'comportamento equilibrado no ambiente de trabalho',
+        {'id': 'op_3_1', 'texto': 'presteza no cumprimento de ordens'},
+        {'id': 'op_3_2', 'texto': 'administração do tempo e cumprimento de prazos'},
+        {'id': 'op_3_3', 'texto': 'uso adequado de equipamentos e instalações'},
+        {'id': 'op_3_4', 'texto': 'adaptação a trabalhos em equipe'},
+        {'id': 'op_3_5', 'texto': 'comportamento equilibrado no ambiente de trabalho'},
       ],
     },
     {
       'secao': 'II - Fatores operacionais / Produtividade',
       'subsecao': '',
       'perguntas': [
-        'qualidade e exatidão na execução de tarefas',
-        'aptidão para as funções do Emprego Público',
-        'iniciativa e comportamento produtivo',
-        'aproveitamento/racionalização de recursos e processos de trabalho',
-        'volume de produção no trabalho sob sua responsabilidade',
-        'aproveitamento de oportunidades de capacitação',
-        'capacidade para auxiliar outros empregados públicos',
+        {'id': 'op_4_1', 'texto': 'qualidade e exatidão na execução de tarefas'},
+        {'id': 'op_4_2', 'texto': 'aptidão para as funções do Emprego Público'},
+        {'id': 'op_4_3', 'texto': 'iniciativa e comportamento produtivo'},
+        {'id': 'op_4_4', 'texto': 'aproveitamento/racionalização de recursos e processos de trabalho'},
+        {'id': 'op_4_5', 'texto': 'volume de produção no trabalho sob sua responsabilidade'},
+        {'id': 'op_4_6', 'texto': 'aproveitamento de oportunidades de capacitação'},
+        {'id': 'op_4_7', 'texto': 'capacidade para auxiliar outros empregados públicos'},
       ],
     },
   ];
@@ -297,50 +327,50 @@ class _FormularioAvaliacaoScreenState
       'secao': 'III - Fatores gerenciais da tarefa',
       'subsecao': 'III.1 - Decisão',
       'perguntas': [
-        'discernimento na análise de situações de trabalho',
-        'prontidão e acerto na tomada de decisões',
-        'equilíbrio frente a situações inesperadas',
+        {'id': 'ger_1_1', 'texto': 'discernimento na análise de situações de trabalho'},
+        {'id': 'ger_1_2', 'texto': 'prontidão e acerto na tomada de decisões'},
+        {'id': 'ger_1_3', 'texto': 'equilíbrio frente a situações inesperadas'},
       ],
     },
     {
       'secao': 'III - Fatores gerenciais da tarefa',
       'subsecao': 'III.2 - Liderança',
       'perguntas': [
-        'segurança e independência nos relacionamentos de trabalho',
-        'diálogo com superiores e subordinados, e delegação de responsabilidades',
-        'colaboração e imparcialidade nas relações com superiores e/ou subordinados',
-        'exercício de influência positiva sobre o grupo',
+        {'id': 'ger_2_1', 'texto': 'segurança e independência nos relacionamentos de trabalho'},
+        {'id': 'ger_2_2', 'texto': 'diálogo com superiores e subordinados, e delegação de responsabilidades'},
+        {'id': 'ger_2_3', 'texto': 'colaboração e imparcialidade nas relações com superiores e/ou subordinados'},
+        {'id': 'ger_2_4', 'texto': 'exercício de influência positiva sobre o grupo'},
       ],
     },
     {
       'secao': 'III - Fatores gerenciais da tarefa',
       'subsecao': 'III.3 - Gestão',
       'perguntas': [
-        'acompanhamento da execução de tarefas pelos empregados públicos sob sua chefia',
-        'incentivo à produção e fornecimento de informação e orientação a seus subordinados',
-        'acionamento de mecanismos da administração para capacitação profissional própria e de seus subordinados',
-        'acionamento de procedimentos de segurança do trabalho',
+        {'id': 'ger_3_1', 'texto': 'acompanhamento da execução de tarefas pelos empregados públicos sob sua chefia'},
+        {'id': 'ger_3_2', 'texto': 'incentivo à produção e fornecimento de informação e orientação a seus subordinados'},
+        {'id': 'ger_3_3', 'texto': 'acionamento de mecanismos da administração para capacitação profissional própria e de seus subordinados'},
+        {'id': 'ger_3_4', 'texto': 'acionamento de procedimentos de segurança do trabalho'},
       ],
     },
     {
       'secao': 'III - Fatores gerenciais da tarefa',
       'subsecao': 'III.4 - Planejamento do trabalho',
       'perguntas': [
-        'organização de roteiros racionais e planejamento de tarefas de acordo com o fluxo das demandas',
-        'análise de itinerários e procedimentos, por mensuração de espaço, distâncias e tempo de execução de tarefas',
-        'estabelecimento de ritmo constante para realização de tarefas e consecução de resultados dentro das metas pré-estabelecidas',
-        'exigência de ordem e higiene nos locais de trabalho',
+        {'id': 'ger_4_1', 'texto': 'organização de roteiros racionais e planejamento de tarefas de acordo com o fluxo das demandas'},
+        {'id': 'ger_4_2', 'texto': 'análise de itinerários e procedimentos, por mensuração de espaço, distâncias e tempo de execução de tarefas'},
+        {'id': 'ger_4_3', 'texto': 'estabelecimento de ritmo constante para realização de tarefas e consecução de resultados dentro das metas pré-estabelecidas'},
+        {'id': 'ger_4_4', 'texto': 'exigência de ordem e higiene nos locais de trabalho'},
       ],
     },
     {
       'secao': 'III - Fatores gerenciais da tarefa',
       'subsecao': 'III.5 - Conhecimento técnico das funções',
       'perguntas': [
-        'domínio de conhecimentos na sua área de atuação',
-        'conhecimento e visão global da estrutura e do funcionamento da organização',
-        'habilidade no trato do público em geral',
-        'interpretação e cumprimento de normas e regulamentos',
-        'observância de prioridades e do interesse público em relação ao trabalho sob sua responsabilidade',
+        {'id': 'ger_5_1', 'texto': 'domínio de conhecimentos na sua área de atuação'},
+        {'id': 'ger_5_2', 'texto': 'conhecimento e visão global da estrutura e do funcionamento da organização'},
+        {'id': 'ger_5_3', 'texto': 'habilidade no trato do público em geral'},
+        {'id': 'ger_5_4', 'texto': 'interpretação e cumprimento de normas e regulamentos'},
+        {'id': 'ger_5_5', 'texto': 'observância de prioridades e do interesse público em relação ao trabalho sob sua responsabilidade'},
       ],
     },
   ];
@@ -968,11 +998,11 @@ class _FormularioAvaliacaoScreenState
       }
 
       // Perguntas
-      for (var pergunta in secao['perguntas']) {
-        final key = 'q$perguntaIndex';
-        widgets.add(_buildPergunta(key, pergunta));
+      for (var perguntaMap in secao['perguntas']) {
+        final key = perguntaMap['id'] as String;
+        final texto = perguntaMap['texto'] as String;
+        widgets.add(_buildPergunta(key, texto));
         widgets.add(const SizedBox(height: 20));
-        perguntaIndex++;
       }
 
       widgets.add(const SizedBox(height: 16));

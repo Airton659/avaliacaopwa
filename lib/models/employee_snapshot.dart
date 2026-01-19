@@ -25,11 +25,11 @@ class EmployeeSnapshot {
 
   factory EmployeeSnapshot.fromMap(Map<String, dynamic> map) {
     return EmployeeSnapshot(
-      nome: map['nome'] as String,
-      funcao: map['funcao'] as String,
-      nivel: map['nivel'] as String,
-      faixa: map['faixa'] as String,
-      admissao: map['admissao'] as String,
+      nome: map['nome'] as String? ?? '',
+      funcao: map['funcao'] as String? ?? '',
+      nivel: map['nivel'] as String? ?? '',
+      faixa: map['faixa'] as String? ?? map['grau'] as String? ?? '',
+      admissao: map['admissao'] as String? ?? '',
     );
   }
 

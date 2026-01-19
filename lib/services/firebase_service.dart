@@ -78,8 +78,8 @@ class FirebaseService {
   ) async {
     final snapshot = await _firestore
         .collection('evaluations')
-        .where('id', isGreaterThanOrEqualTo: '${year}_${employeeId}_')
-        .where('id', isLessThan: '${year}_${employeeId}_Z')
+        .where(FieldPath.documentId, isGreaterThanOrEqualTo: '${year}_${employeeId}_')
+        .where(FieldPath.documentId, isLessThan: '${year}_${employeeId}_\uf8ff')
         .get();
 
     return snapshot.docs
@@ -102,11 +102,11 @@ class FirebaseService {
   Future<List<Question>> getQuestions() async {
     final snapshot = await _firestore
         .collection('questions')
-        .orderBy('order')
+        .orderBy('ordem')
         .get();
 
     return snapshot.docs
-        .map((doc) => Question.fromFirestore(doc.data()))
+        .map((doc) => Question.fromFirestore(doc.data(), doc.id))
         .toList();
   }
 

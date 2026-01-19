@@ -6,8 +6,22 @@ import '../models/employee.dart';
 import '../models/evaluation.dart';
 
 class PdfService {
-  Future<Uint8List> generateAnexoI(Employee employee, Evaluation? evaluation, List<dynamic> questions) async {
+  Future<Uint8List> generateAnexoI(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final pdf = pw.Document();
+
+    final startYear = cycle - 1;
+    final endYear = cycle;
+    final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
+
+    pw.ImageProvider? signatureImage;
+    if (evaluation?.signatureUrl != null && evaluation!.signatureUrl!.isNotEmpty) {
+      try {
+        signatureImage = await networkImage(evaluation.signatureUrl!);
+      } catch (e) {
+        // Fallback or ignore
+        print('Error loading signature image: $e');
+      }
+    }
 
     pdf.addPage(
       pw.Page(
@@ -17,14 +31,14 @@ class PdfService {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
+              _buildHeader(periodoAvaliacao),
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlock(employee),
               pw.Expanded(
                 child: _buildEvaluationMatrix(evaluation, questions),
               ),
-              _buildFooter(),
-              _buildSignatures(),
+              _buildFooter(evaluation, questions),
+              _buildSignatures(evaluation, signatureImage),
             ],
           );
         },
@@ -34,7 +48,7 @@ class PdfService {
     return pdf.save();
   }
 
-  pw.Widget _buildHeader() {
+  pw.Widget _buildHeader(String periodoAvaliacao) {
     return pw.Container(
       decoration: pw.BoxDecoration(border: pw.Border.all()),
       child: pw.Column(
@@ -90,7 +104,7 @@ class PdfService {
                 child: pw.Column(
                   children: [
                     pw.Text('Período de Avaliação', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('01/10/2024 a 30/09/2025', style: pw.TextStyle(fontSize: 10)),
+                    pw.Text(periodoAvaliacao, style: pw.TextStyle(fontSize: 10)),
                     pw.SizedBox(height: 5),
                     pw.Text('Tipo', style: pw.TextStyle(fontSize: 10)),
                     pw.SizedBox(height: 2),
@@ -190,7 +204,7 @@ class PdfService {
               pw.TableRow(
                 decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
                 children: [
-                  _buildCellContent('Vencimento:', employee.vencimento != null ? 'R\$ ${employee.vencimento!.toStringAsFixed(2)}' : ''),
+                  _buildCellContent('Vencimento:', employee.vencimento != null ? 'R\$ ${employee.vencimento}' : ''),
                   _buildCellContent('Escolaridade Atual:', employee.escolaridadeAtual ?? ''),
                 ]
               ),
@@ -331,12 +345,17 @@ class PdfService {
     return evaluation.answers[questionId];
   }
 
-  pw.Widget _buildEvaluationMatrix(Evaluation? evaluation, List<dynamic> questions) {
-    // Filter only active questions
-    final activeQuestions = questions.where((q) => q['ativo'] == true).toList();
+  pw.Widget _buildEvaluationMatrix(Evaluation? evaluation, List<Map<String, dynamic>> questions) {
+    // Filter only active questions AND type 'OPERACIONAL' for Anexo I
+    // STRICT MATCHING to align with FormularioAvaliacaoScreen Firestore Query
+    final activeQuestions = questions.where((q) {
+      final isActive = q['ativo'] as bool? ?? false; // Default to false (Firestore excludes nulls in where clause)
+      final type = q['tipo'] as String? ?? ''; // Default to empty (Firestore excludes nulls)
+      return isActive && type == 'OPERACIONAL';
+    }).toList();
     
     // Sort by ordem
-    activeQuestions.sort((a, b) => (a['ordem'] as int).compareTo(b['ordem'] as int));
+    activeQuestions.sort((a, b) => (a['ordem'] as int? ?? 0).compareTo(b['ordem'] as int? ?? 0));
     
     // Group by secao and subsecao
     final Map<String, Map<String, List<Map<String, dynamic>>>> grouped = {};
@@ -351,7 +370,7 @@ class PdfService {
       if (!grouped[secao]!.containsKey(subsecao)) {
         grouped[secao]![subsecao] = [];
       }
-      grouped[secao]![subsecao]!.add(q as Map<String, dynamic>);
+      grouped[secao]![subsecao]!.add(q);
     }
 
     final List<pw.TableRow> rows = [];
@@ -377,12 +396,17 @@ class PdfService {
         for (int i = 0; i < perguntas.length; i++) {
           final pergunta = perguntas[i];
           final texto = pergunta['pergunta'] as String;
-          final questionId = 'q$questionIndex';
+          final legacyQuestionId = 'q$questionIndex'; // Legacy index-based key
+          final stableQuestionId = pergunta['id'] as String? ?? ''; // Stable FK key
+          
           questionIndex++;
           
           final isLast = questionIndex == totalQuestions;
+
+          // Try stable ID first, then legacy fallback
+          final score = _getScore(evaluation, stableQuestionId) ?? _getScore(evaluation, legacyQuestionId);
           
-          rows.add(_buildQuestionTableRow(texto, _getScore(evaluation, questionId), !isLast));
+          rows.add(_buildQuestionTableRow(texto, score, !isLast));
         }
       }
     }
@@ -440,7 +464,7 @@ class PdfService {
         ),
         pw.Center(
           child: score != null 
-            ? pw.Text('( X ) $score', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))
+            ? pw.Text('$score', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))
             : pw.Text('', style: pw.TextStyle(fontSize: 10)),
         ),
       ],
@@ -449,7 +473,51 @@ class PdfService {
 
 
 
-  pw.Widget _buildFooter() {
+  pw.Widget _buildFooter(Evaluation? evaluation, List<Map<String, dynamic>> questions) {
+    // Calculate Total Score based on displayed questions
+    int totalScore = 0;
+    if (evaluation != null) {
+      final activeQuestions = questions.where((q) {
+        final isActive = q['ativo'] as bool? ?? false;
+        final type = q['tipo'] as String? ?? '';
+        return isActive && type == 'OPERACIONAL';
+      }).toList();
+
+      for (var q in activeQuestions) {
+        final id = q['id'] as String? ?? '';
+        // Need to handle legacy vs new IDs same way as matrix
+        // Optimization: matrix logic is inside the loop. 
+        // We can just rely on the map lookup.
+        // Assuming evaluation.answers has the correct keys. 
+        // Note: The Matrix uses index fallback q0, q1... 
+        // We need to replicate that if we want EXACT match of what's shown.
+        // However, calculating "q0, q1" logic here implies we need sorting first.
+        
+        // Let's sort to be safe, though lookup is by ID usually.
+        // If the answer is keyed by 'q0' legacy, we need to know which question corresponds to 'q0'.
+        // So we MUST sort.
+      }
+      
+      // Replicating sort logic
+      activeQuestions.sort((a, b) => (a['ordem'] as int? ?? 0).compareTo(b['ordem'] as int? ?? 0));
+      
+      int index = 0;
+      for (var q in activeQuestions) {
+        final stableId = q['id'] as String? ?? '';
+        final legacyId = 'q$index';
+        
+        final val = evaluation.answers[stableId] ?? evaluation.answers[legacyId];
+        if (val is int) {
+          totalScore += val;
+        }
+        index++;
+      }
+    }
+
+    final obsText = (evaluation?.obs != null && evaluation!.obs!.trim().isNotEmpty)
+        ? evaluation.obs!
+        : 'NADA CONSTA';
+
     return pw.Container(
       child: pw.Row(
         children: [
@@ -460,7 +528,13 @@ class PdfService {
               height: 40,
               decoration: pw.BoxDecoration(border: pw.Border.all()),
               padding: const pw.EdgeInsets.all(5),
-              child: pw.Text('Obs.:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                   pw.Text('Obs.:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                   pw.Text(obsText, style: pw.TextStyle(fontSize: 9)),
+                ]
+              ),
             ),
           ),
           // Total/Conceito
@@ -473,9 +547,16 @@ class PdfService {
                    decoration: pw.BoxDecoration(
                       border: pw.Border(top: pw.BorderSide(), right: pw.BorderSide(), bottom: pw.BorderSide())
                    ),
-                   padding: const pw.EdgeInsets.only(left: 5),
+                   padding: const pw.EdgeInsets.symmetric(horizontal: 5),
                    alignment: pw.Alignment.centerLeft,
-                   child: pw.Text('Total', style: pw.TextStyle(fontSize: 9)),
+                   child: pw.Row(
+                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                     children: [
+                       pw.Text('Total', style: pw.TextStyle(fontSize: 9)),
+                       if (evaluation != null)
+                         pw.Text('$totalScore', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                     ]
+                   ),
                 ),
                  pw.Container(
                   height: 20,
@@ -494,7 +575,17 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildSignatures() {
+  pw.Widget _buildSignatures(Evaluation? evaluation, pw.ImageProvider? signatureImage) {
+      String dateStr = '____ de _______________ de 20__';
+      
+      if (evaluation != null) {
+        final date = evaluation.createdAt;
+        final day = date.day.toString().padLeft(2, '0');
+        final monthName = _getMonthName(date.month);
+        final year = date.year;
+        dateStr = '$day de $monthName de $year';
+      }
+
       return pw.Padding(
           padding: const pw.EdgeInsets.only(top: 40),
           child: pw.Column(
@@ -502,10 +593,18 @@ class PdfService {
                    pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.center,
                       children: [
-                          pw.Text('Itabira, em ____ de _______________ de 20__', style: pw.TextStyle(fontSize: 10)),
+                          pw.Text('Itabira, em $dateStr', style: pw.TextStyle(fontSize: 10)),
                       ]
                    ),
-                   pw.SizedBox(height: 50),
+                   pw.SizedBox(height: 30), // Reduced height to accommodate image
+                   if (signatureImage != null)
+                      pw.Container(
+                        height: 50,
+                        child: pw.Image(signatureImage, fit: pw.BoxFit.contain),
+                      )
+                   else
+                      pw.SizedBox(height: 50),
+                   
                    pw.Container(
                        width: 250,
                        decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
@@ -515,5 +614,14 @@ class PdfService {
               ]
           )
       );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+      'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+    ];
+    if (month < 1 || month > 12) return '';
+    return months[month - 1];
   }
 }

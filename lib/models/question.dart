@@ -1,4 +1,5 @@
 class Question {
+  final String id;
   final bool ativo;
   final int ordem;
   final String pergunta;
@@ -7,6 +8,7 @@ class Question {
   final String tipo; // OPERACIONAL ou GERENCIAL
 
   Question({
+    required this.id,
     required this.ativo,
     required this.ordem,
     required this.pergunta,
@@ -26,8 +28,9 @@ class Question {
     };
   }
 
-  factory Question.fromFirestore(Map<String, dynamic> data) {
+  factory Question.fromFirestore(Map<String, dynamic> data, String documentId) {
     return Question(
+      id: documentId,
       ativo: data['ativo'] as bool? ?? true,
       ordem: data['ordem'] as int? ?? 0,
       pergunta: data['pergunta'] as String? ?? '',
