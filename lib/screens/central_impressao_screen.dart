@@ -38,7 +38,7 @@ class CentralImpressaoScreen extends StatelessWidget {
                 );
 
                 await Printing.layoutPdf(
-                  onLayout: (format) => PdfService().generateAnexoI(dummyEmployee, null),
+                  onLayout: (format) => PdfService().generateAnexoI(dummyEmployee, null, []),
                 );
               },
             ),

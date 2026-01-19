@@ -6,7 +6,7 @@ import '../models/employee.dart';
 import '../models/evaluation.dart';
 
 class PdfService {
-  Future<Uint8List> generateAnexoI(Employee employee, Evaluation? evaluation) async {
+  Future<Uint8List> generateAnexoI(Employee employee, Evaluation? evaluation, List<dynamic> questions) async {
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -21,7 +21,7 @@ class PdfService {
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlock(employee),
               pw.Expanded(
-                child: _buildEvaluationMatrix(evaluation),
+                child: _buildEvaluationMatrix(evaluation, questions),
               ),
               _buildFooter(),
               _buildSignatures(),
@@ -176,22 +176,22 @@ class PdfService {
                         pw.TableRow(
                           children: [
                             _buildCellContent('Nível:', employee.nivel),
-                            _buildCellContent('Grau:', 'I'),
+                            _buildCellContent('Grau:', employee.faixa),
                           ]
                         )
                       ]
                     ),
                   ),
                   // Direita: Escolaridade Ingresso (SEM borda inferior)
-                  _buildCellContent('Escolaridade de Ingresso:', ''),
+                  _buildCellContent('Escolaridade de Ingresso:', employee.escolaridadeIngresso ?? ''),
                 ]
               ),
               // Linha 4: Vencimento | Escolaridade Atual
               pw.TableRow(
                 decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
                 children: [
-                  _buildCellContent('Vencimento:', 'R\$ 3.580,78'),
-                  _buildCellContent('Escolaridade Atual:', 'Pós Grad. completo'),
+                  _buildCellContent('Vencimento:', employee.vencimento != null ? 'R\$ ${employee.vencimento!.toStringAsFixed(2)}' : ''),
+                  _buildCellContent('Escolaridade Atual:', employee.escolaridadeAtual ?? ''),
                 ]
               ),
             ],
@@ -326,7 +326,67 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildEvaluationMatrix(Evaluation? evaluation) {
+  int? _getScore(Evaluation? evaluation, String questionId) {
+    if (evaluation == null) return null;
+    return evaluation.answers[questionId];
+  }
+
+  pw.Widget _buildEvaluationMatrix(Evaluation? evaluation, List<dynamic> questions) {
+    // Filter only active questions
+    final activeQuestions = questions.where((q) => q['ativo'] == true).toList();
+    
+    // Sort by ordem
+    activeQuestions.sort((a, b) => (a['ordem'] as int).compareTo(b['ordem'] as int));
+    
+    // Group by secao and subsecao
+    final Map<String, Map<String, List<Map<String, dynamic>>>> grouped = {};
+    
+    for (var q in activeQuestions) {
+      final secao = q['secao'] as String? ?? '';
+      final subsecao = q['subsecao'] as String? ?? '';
+      
+      if (!grouped.containsKey(secao)) {
+        grouped[secao] = {};
+      }
+      if (!grouped[secao]!.containsKey(subsecao)) {
+        grouped[secao]![subsecao] = [];
+      }
+      grouped[secao]![subsecao]!.add(q as Map<String, dynamic>);
+    }
+
+    final List<pw.TableRow> rows = [];
+    int questionIndex = 0;
+    final totalQuestions = activeQuestions.length;
+    
+    // Sort secoes
+    final sortedSecoes = grouped.keys.toList()..sort();
+    
+    for (var secao in sortedSecoes) {
+      // Add secao header
+      rows.add(_buildSectionHeaderRow(secao));
+      
+      final subsecoes = grouped[secao]!;
+      final sortedSubsecoes = subsecoes.keys.toList()..sort();
+      
+      for (var subsecao in sortedSubsecoes) {
+        // Add subsecao header
+        rows.add(_buildSubsectionHeaderRow(subsecao));
+        
+        final perguntas = subsecoes[subsecao]!;
+        
+        for (int i = 0; i < perguntas.length; i++) {
+          final pergunta = perguntas[i];
+          final texto = pergunta['pergunta'] as String;
+          final questionId = 'q$questionIndex';
+          questionIndex++;
+          
+          final isLast = questionIndex == totalQuestions;
+          
+          rows.add(_buildQuestionTableRow(texto, _getScore(evaluation, questionId), !isLast));
+        }
+      }
+    }
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border(
@@ -341,35 +401,7 @@ class PdfService {
           1: const pw.FlexColumnWidth(4),
         },
         border: pw.TableBorder(verticalInside: pw.BorderSide()),
-        children: [
-          // I - Fatores comportamentais
-          _buildSectionHeaderRow('I - Fatores comportamentais:'),
-          _buildSubsectionHeaderRow('I.1 - Discrição:'),
-          _buildQuestionTableRow('I.1.1 - comportamento discreto em suas relações de trabalho;', null, true),
-          _buildQuestionTableRow('I.1.2 - discrição em relação a fatos ocorridos no setor de trabalho;', null, true),
-          _buildQuestionTableRow('I.1.3 - atitude respeitosa em relação à chefia, a colegas e ao público;', null, true),
-          _buildQuestionTableRow('I.1.4 - guarda responsável de documentos e informações sigilosos.', null, true),
-          _buildSubsectionHeaderRow('I.2 - Assiduidade:'),
-          _buildQuestionTableRow('I.2.1 - assiduidade ao trabalho (frequência mínima de 95%);', null, true),
-          _buildQuestionTableRow('I.2.2 - pontualidade no cumprimento de horários;', null, true),
-          _buildQuestionTableRow('I.2.3 - permanência regular no local de trabalho;', null, true),
-          _buildQuestionTableRow('I.2.4 - atenção no exercício das funções.', null, true),
-          _buildSubsectionHeaderRow('I.3 - Disciplina:'),
-          _buildQuestionTableRow('I.3.1 - presteza no cumprimento de ordens;', null, true),
-          _buildQuestionTableRow('I.3.2 - administração do tempo e cumprimento de prazos;', null, true),
-          _buildQuestionTableRow('I.3.3 - uso adequado de equipamentos e instalações;', null, true),
-          _buildQuestionTableRow('I.3.4 - adaptação a trabalhos em equipe;', null, true),
-          _buildQuestionTableRow('I.3.5 - comportamento equilibrado no ambiente de trabalho.', null, true),
-          // II - Fatores operacionais
-          _buildSectionHeaderRow('II - Fatores operacionais / Produtividade:'),
-          _buildQuestionTableRow('II.1 - qualidade e exatidão na execução de tarefas;', null, true),
-          _buildQuestionTableRow('II.2 - aptidão para as funções do Emprego Público;', null, true),
-          _buildQuestionTableRow('II.3 - iniciativa e comportamento produtivo;', null, true),
-          _buildQuestionTableRow('II.4 - aproveitamento/racionalização de recursos e processos de trabalho;', null, true),
-          _buildQuestionTableRow('II.5 - volume de produção no trabalho sob sua responsabilidade;', null, true),
-          _buildQuestionTableRow('II.6 - aproveitamento de oportunidades de capacitação;', null, true),
-          _buildQuestionTableRow('II.7 - capacidade para auxiliar outros empregados públicos.', null, false), // última questão sem borda
-        ],
+        children: rows,
       ),
     );
   }

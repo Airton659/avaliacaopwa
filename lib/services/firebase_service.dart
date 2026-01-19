@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/employee.dart';
 import '../models/evaluation.dart';
+import '../models/question.dart';
 
 class FirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -94,6 +95,18 @@ class FirebaseService {
 
     return snapshot.docs
         .map((doc) => Evaluation.fromFirestore(doc.data()))
+        .toList();
+  }
+
+  // Question operations
+  Future<List<Question>> getQuestions() async {
+    final snapshot = await _firestore
+        .collection('questions')
+        .orderBy('order')
+        .get();
+
+    return snapshot.docs
+        .map((doc) => Question.fromFirestore(doc.data()))
         .toList();
   }
 
