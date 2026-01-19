@@ -9,10 +9,6 @@ class PdfService {
   Future<Uint8List> generateAnexoI(Employee employee, Evaluation? evaluation) async {
     final pdf = pw.Document();
 
-    // Carregar logo
-    final logoImage = await rootBundle.load('assets/images/logo.png');
-    final logoProvider = pw.MemoryImage(logoImage.buffer.asUint8List());
-
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -21,9 +17,7 @@ class PdfService {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              _buildTitleTag(),
-              pw.SizedBox(height: 5),
-              _buildHeader(logoProvider),
+              _buildHeader(),
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlock(employee),
               pw.Expanded(
@@ -40,75 +34,78 @@ class PdfService {
     return pdf.save();
   }
 
-  pw.Widget _buildTitleTag() {
-    return pw.Text(
-      'ANEXO I - a ser preenchido pelo próprio empregado que não assume funções gerenciais',
-      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-    );
-  }
-
-  pw.Widget _buildHeader(pw.MemoryImage logo) {
+  pw.Widget _buildHeader() {
     return pw.Container(
       decoration: pw.BoxDecoration(border: pw.Border.all()),
-      margin: const pw.EdgeInsets.only(bottom: 5),
-      child: pw.Row(
+      child: pw.Column(
         children: [
-          // Coluna Esquerda
-          pw.Expanded(
-            flex: 2,
-            child: pw.Padding(
-              padding: const pw.EdgeInsets.all(5),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Row(
+          // Título (ANEXO I) com linha horizontal abaixo
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide()),
+            ),
+            padding: const pw.EdgeInsets.all(5),
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              'ANEXO I - a ser preenchido pelo próprio empregado que não assume funções gerenciais',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              textAlign: pw.TextAlign.center,
+            ),
+          ),
+          // Conteúdo principal: Empresa (esquerda) + Período boxed (direita)
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Coluna Esquerda: Empresa, Processo, CTEA
+              pw.Expanded(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(8),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Container(
-                        width: 40,
-                        height: 40,
-                        child: pw.Image(logo),
+                      pw.Text(
+                        'Empresa de Desenvolvimento de Itabira Ltda.',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
                       ),
-                      pw.SizedBox(width: 10),
-                      pw.Expanded(
-                        child: pw.Text(
-                          'Empresa de Desenvolvimento de Itabira Ltda.',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
-                        ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Processo de Avaliação de Desempenho Individual',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                       ),
                     ],
                   ),
-                  pw.SizedBox(height: 5),
-                  pw.Text('Processo de Avaliação de Desempenho Individual',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                  pw.Text('C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                ],
+                ),
               ),
-            ),
-          ),
-          // Coluna Direita (Período)
-          pw.Container(
-            width: 150,
-            decoration: pw.BoxDecoration(
-              border: pw.Border(left: pw.BorderSide()),
-            ),
-            padding: const pw.EdgeInsets.all(5),
-            child: pw.Column(
-              children: [
-                pw.Text('Período de Avaliação', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                pw.Text('01/10/2024 a 30/09/2025', style: pw.TextStyle(fontSize: 9)),
-                pw.SizedBox(height: 5),
-                pw.Text('Tipo', style: pw.TextStyle(fontSize: 9)),
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.center,
+              // Coluna Direita: Período de Avaliação (BOX DENTRO)
+              pw.Container(
+                width: 180,
+                margin: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
                   children: [
-                    _buildCheckbox('ADE'),
-                    pw.SizedBox(width: 10),
-                    _buildCheckbox('ADO', checked: true), // Padrão ADO
+                    pw.Text('Período de Avaliação', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('01/10/2024 a 30/09/2025', style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 5),
+                    pw.Text('Tipo', style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 2),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        _buildCheckbox('ADE'),
+                        pw.SizedBox(width: 15),
+                        _buildCheckbox('ADO', checked: true),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -117,60 +114,85 @@ class PdfService {
 
   pw.Widget _buildIdentificationBlock(Employee employee) {
     return pw.Container(
-      decoration: pw.BoxDecoration(border: pw.Border.all()),
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          left: pw.BorderSide(),
+          right: pw.BorderSide(),
+          bottom: pw.BorderSide(),
+        ),
+      ),
       child: pw.Column(
         children: [
-          // Linha 1
-          pw.Row(
+          // Linhas 1-2: Empregado/Matrícula e Emprego/Data (coluna direita estreita ~180px)
+          pw.Table(
+            columnWidths: {
+              0: const pw.FlexColumnWidth(3),
+              1: const pw.FixedColumnWidth(180),
+            },
+            border: pw.TableBorder(
+              horizontalInside: pw.BorderSide(),
+              verticalInside: pw.BorderSide(),
+            ),
             children: [
-              _buildField('Empregado:', employee.nome, flex: 3),
-              _buildField('Chapa:', employee.id, flex: 1, borderLeft: true),
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
+                children: [
+                  _buildCellContent('Empregado:', employee.nome),
+                  _buildCellContent('Matrícula:', employee.id),
+                ]
+              ),
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
+                children: [
+                  _buildCellContent('Emprego Público:', employee.funcao),
+                  _buildCellContent('Data de Admissão:', employee.admissao),
+                ]
+              ),
             ],
           ),
-          pw.Divider(height: 1, thickness: 1),
-          // Linha 2
-          pw.Row(
+          // Linhas 3-4: Nível/Grau/Vencimento | Escolaridades (coluna direita larga ~250px)
+          pw.Table(
+            columnWidths: {
+              0: const pw.FlexColumnWidth(2),
+              1: const pw.FlexColumnWidth(3),
+            },
+            border: pw.TableBorder(
+              verticalInside: pw.BorderSide(),
+            ),
             children: [
-              _buildField('Emprego Público:', employee.funcao, flex: 1),
-              _buildField('Data de admissão:', employee.admissao, flex: 1, borderLeft: true),
-            ],
-          ),
-          pw.Divider(height: 1, thickness: 1),
-          // Linha 3
-          pw.Row(
-            children: [
-              _buildField('Nível:', employee.nivel, flex: 1),
-              _buildField('Escolaridade de Ingresso:', '', flex: 1, borderLeft: true),
-            ],
-          ),
-          pw.Divider(height: 1, thickness: 1),
-          // Linha 4
-          pw.Row(
-            children: [
-              _buildField('Grau:', 'I', flex: 1),
-              _buildField('Escolaridade Atual:', '', flex: 1, borderLeft: true),
-            ],
-          ),
-          pw.Divider(height: 1, thickness: 1),
-          // Linha 5
-          pw.Row(
-            children: [
-              _buildField('Vencimento:', '', flex: 1),
-              pw.Expanded(
-                flex: 1,
-                child: pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border(left: pw.BorderSide())),
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  child: pw.Row(
-                    children: [
-                      pw.Text('Ocorrência disciplinar: ', style: pw.TextStyle(fontSize: 9)),
-                      pw.Spacer(),
-                      _buildCheckbox('SIM'),
-                      pw.SizedBox(width: 5),
-                      _buildCheckbox('NÃO'),
-                    ],
+              // Linha 3: Nível/Grau | Escolaridade Ingresso
+              pw.TableRow(
+                children: [
+                  // Esquerda: Nível | Grau (COM borda inferior)
+                  pw.Container(
+                    decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
+                    child: pw.Table(
+                      columnWidths: {
+                        0: const pw.FlexColumnWidth(5),
+                        1: const pw.FlexColumnWidth(2),
+                      },
+                      border: pw.TableBorder(verticalInside: pw.BorderSide()),
+                      children: [
+                        pw.TableRow(
+                          children: [
+                            _buildCellContent('Nível:', employee.nivel),
+                            _buildCellContent('Grau:', 'I'),
+                          ]
+                        )
+                      ]
+                    ),
                   ),
-                ),
+                  // Direita: Escolaridade Ingresso (SEM borda inferior)
+                  _buildCellContent('Escolaridade de Ingresso:', ''),
+                ]
+              ),
+              // Linha 4: Vencimento | Escolaridade Atual
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
+                children: [
+                  _buildCellContent('Vencimento:', 'R\$ 3.580,78'),
+                  _buildCellContent('Escolaridade Atual:', 'Pós Grad. completo'),
+                ]
               ),
             ],
           ),
@@ -179,21 +201,25 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildField(String label, String value, {int flex = 1, bool borderLeft = false}) {
-    return pw.Expanded(
-      flex: flex,
-      child: pw.Container(
-        decoration: borderLeft ? pw.BoxDecoration(border: pw.Border(left: pw.BorderSide())) : null,
-        padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        child: pw.Row(
-          children: [
-            pw.Text(label, style: pw.TextStyle(fontSize: 9)),
-            pw.SizedBox(width: 5),
-            pw.Expanded(child: pw.Text(value, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
-          ],
-        ),
-      ),
+  pw.Widget _buildCellContent(String label, String value) {
+     return pw.Padding(
+       padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+       child: _buildCellText(label, value),
+     );
+  }
+
+  pw.Widget _buildCellText(String label, String value) {
+    return pw.Row(
+       children: [
+          pw.Text(label, style: pw.TextStyle(fontSize: 9)),
+          pw.SizedBox(width: 5),
+          pw.Expanded(child: pw.Text(value, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
+       ]
     );
+  }
+
+  pw.Widget _buildTableCell(String label, String value) {
+     return _buildCellContent(label, value); // Reusing for compatibility
   }
 
   pw.Widget _buildFunctionalSituationBlock(Employee employee) {
@@ -201,49 +227,70 @@ class PdfService {
       decoration: pw.BoxDecoration(
         border: pw.Border(left: pw.BorderSide(), right: pw.BorderSide(), bottom: pw.BorderSide()),
       ),
-      child: pw.Row(
+      child: pw.Table(
+        columnWidths: {
+          0: const pw.FixedColumnWidth(110),
+          1: const pw.FlexColumnWidth(2),
+          2: const pw.FixedColumnWidth(140),
+        },
+        border: pw.TableBorder(verticalInside: pw.BorderSide()),
         children: [
-          // Coluna 1
-          pw.Container(
-            width: 80,
-            padding: const pw.EdgeInsets.all(5),
-            alignment: pw.Alignment.center,
-            child: pw.Text('Situação funcional /\nExercício:', textAlign: pw.TextAlign.center, style: pw.TextStyle(fontSize: 9)),
-          ),
-          pw.Container(width: 1, height: 45, color: PdfColors.black), // Divisoria
-          // Coluna 2
-          pw.Expanded(
-            child: pw.Padding(
-              padding: const pw.EdgeInsets.all(2),
-              child: pw.Column(
-                children: [
-                  _buildCheckboxRow('Emprego Público comissionado:'),
-                  _buildCheckboxRow('Disponibilidade:'),
-                  _buildCheckboxRow('Desvio de função:'),
-                  _buildCheckboxRow('Emprego Público de provimento:'),
-                ],
-              ),
-            ),
-          ),
-          pw.Container(width: 1, height: 45, color: PdfColors.black), // Divisoria
-          // Coluna 3
-          pw.Container(
-            width: 120,
-            padding: const pw.EdgeInsets.all(5),
-            child: pw.Column(
-              children: [
-                pw.Text('Tem condições de avaliação?', style: pw.TextStyle(fontSize: 8)),
-                pw.SizedBox(height: 5),
-                pw.Row(
+          pw.TableRow(
+            children: [
+              // Coluna 1: Ocorrência disciplinar
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
                   mainAxisAlignment: pw.MainAxisAlignment.center,
                   children: [
-                    _buildCheckbox('SIM'),
-                    pw.SizedBox(width: 10),
-                    _buildCheckbox('NÃO'),
+                    pw.Text('Ocorrência disciplinar:', style: pw.TextStyle(fontSize: 8)),
+                    pw.SizedBox(height: 5),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        _buildCheckbox('SIM'),
+                        pw.SizedBox(width: 10),
+                        _buildCheckbox('NÃO'),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              // Coluna 2: Lista de checkboxes
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  children: [
+                    _buildCheckboxRow('Emprego Público comissionado:'),
+                    _buildCheckboxRow('Disponibilidade:'),
+                    _buildCheckboxRow('Desvio de função:'),
+                    _buildCheckboxRow('Emprego Público de provimento:'),
+                  ],
+                ),
+              ),
+              // Coluna 3: Tem condições de avaliação
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  children: [
+                    pw.Text('Tem condições de avaliação?', style: pw.TextStyle(fontSize: 8)),
+                    pw.SizedBox(height: 5),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        _buildCheckbox('SIM'),
+                        pw.SizedBox(width: 10),
+                        _buildCheckbox('NÃO'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -280,146 +327,98 @@ class PdfService {
   }
 
   pw.Widget _buildEvaluationMatrix(Evaluation? evaluation) {
-    final questions = {
-      'I - Fatores comportamentais:': <String>[],
-      'I.1 - Discrição:': [
-        'I.1.1 - comportamento discreto em suas relações de trabalho;',
-        'I.1.2 - discrição em relação a fatos ocorridos no setor de trabalho;',
-        'I.1.3 - atitude respeitosa em relação à chefia, a colegas e ao público;',
-        'I.1.4 - guarda responsável de documentos e informações sigilosos.'
-      ],
-      'I.2 - Assiduidade:': [
-        'I.2.1 - assiduidade ao trabalho (frequência mínima de 95%);',
-        'I.2.2 - pontualidade no cumprimento de horários;',
-        'I.2.3 - permanência regular no local de trabalho;',
-        'I.2.4 - atenção no exercício das funções.'
-      ],
-      'I.3 - Disciplina:': [
-        'I.3.1 - presteza no cumprimento de ordens;',
-        'I.3.2 - administração do tempo e cumprimento de prazos;',
-        'I.3.3 - uso adequado de equipamentos e instalações;',
-        'I.3.4 - adaptação a trabalhos em equipe;',
-        'I.3.5 - comportamento equilibrado no ambiente de trabalho.'
-      ],
-      'II - Fatores operacionais / Produtividade:': [
-        'II.1 - qualidade e exatidão na execução de tarefas;',
-        'II.2 - aptidão para as funções do Emprego Público;',
-        'II.3 - iniciativa e comportamento produtivo;',
-        'II.4 - aproveitamento/racionalização de recursos e processos de trabalho;',
-        'II.5 - volume de produção no trabalho sob sua responsabilidade;',
-        'II.6 - aproveitamento de oportunidades de capacitação;',
-        'II.7 - capacidade para auxiliar outros empregados públicos.'
-      ]
-    };
-
     return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 5),
-      decoration: pw.BoxDecoration(border: pw.Border.all()),
-      child: pw.Column(
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          left: pw.BorderSide(),
+          right: pw.BorderSide(),
+          bottom: pw.BorderSide(),
+        ),
+      ),
+      child: pw.Table(
+        columnWidths: {
+          0: const pw.FlexColumnWidth(6),
+          1: const pw.FlexColumnWidth(4),
+        },
+        border: pw.TableBorder(verticalInside: pw.BorderSide()),
         children: [
-          // Header Tabela
-          pw.Container(
-            decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
-            child: pw.Row(
-              children: [
-                pw.Expanded(
-                  flex: 6,
-                  child: pw.Padding(
-                    padding: const pw.EdgeInsets.all(5),
-                    child: pw.Text('I - Fatores comportamentais:', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                  ),
-                ),
-                pw.Container(width: 1, height: 35, color: PdfColors.black),
-                pw.Expanded(
-                  flex: 4,
-                  child: pw.Padding(
-                    padding: const pw.EdgeInsets.all(2),
-                    child: pw.Text(
-                      'Marque a opção que melhor responda ao fator avaliado, sendo 1 – RUIM  2 – REGULAR 3 – BOM 4 – MUITO BOM  5 – ÓTIMO',
-                      style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Rows
-          ...questions.entries.map((entry) {
-            final category = entry.key;
-            final items = entry.value;
-            final List<pw.Widget> widgets = [];
-            
-            // Se for categoria principal (II), imprime header de seção
-            if (category.startsWith('II - ')) {
-               widgets.add(
-                 pw.Container(
-                   decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
-                   padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                   width: double.infinity,
-                   child: pw.Text(category, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                 )
-               );
-            } 
-            // Se for subgrupo (I.*), imprime apenas se não for 'I - Fatores...' (que ja ta no header)
-            else if (items.isNotEmpty) {
-                 widgets.add(
-                 pw.Container(
-                   decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
-                   padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                   width: double.infinity,
-                   child: pw.Text(category, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
-                 )
-               );
-            }
-
-            for (var item in items) {
-              int? score; // Mapeamento futuro
-              widgets.add(
-                pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
-                  child: pw.Row(
-                    children: [
-                      pw.Expanded(
-                        flex: 6,
-                        child: pw.Padding(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                          child: pw.Text(item, style: pw.TextStyle(fontSize: 8)), // Fonte menor para caber
-                        ),
-                      ),
-                      pw.Container(width: 1, height: 23, color: PdfColors.black), // Altura da linha
-                      pw.Expanded(
-                        flex: 4,
-                        child: pw.Row(
-                          mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
-                          children: [1, 2, 3, 4, 5].map((val) => 
-                            pw.Row(
-                                children: [
-                                    pw.Text("(", style: pw.TextStyle(fontSize: 8)),
-                                    pw.SizedBox(width: 2),
-                                    pw.Text(score == val ? "X" : " ", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                                    pw.SizedBox(width: 2),
-                                    pw.Text(") $val", style: pw.TextStyle(fontSize: 8)),
-                                ]
-                            )
-                          ).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              );
-            }
-            return pw.Column(children: widgets);
-          }).toList(),
+          // I - Fatores comportamentais
+          _buildSectionHeaderRow('I - Fatores comportamentais:'),
+          _buildSubsectionHeaderRow('I.1 - Discrição:'),
+          _buildQuestionTableRow('I.1.1 - comportamento discreto em suas relações de trabalho;', null, true),
+          _buildQuestionTableRow('I.1.2 - discrição em relação a fatos ocorridos no setor de trabalho;', null, true),
+          _buildQuestionTableRow('I.1.3 - atitude respeitosa em relação à chefia, a colegas e ao público;', null, true),
+          _buildQuestionTableRow('I.1.4 - guarda responsável de documentos e informações sigilosos.', null, true),
+          _buildSubsectionHeaderRow('I.2 - Assiduidade:'),
+          _buildQuestionTableRow('I.2.1 - assiduidade ao trabalho (frequência mínima de 95%);', null, true),
+          _buildQuestionTableRow('I.2.2 - pontualidade no cumprimento de horários;', null, true),
+          _buildQuestionTableRow('I.2.3 - permanência regular no local de trabalho;', null, true),
+          _buildQuestionTableRow('I.2.4 - atenção no exercício das funções.', null, true),
+          _buildSubsectionHeaderRow('I.3 - Disciplina:'),
+          _buildQuestionTableRow('I.3.1 - presteza no cumprimento de ordens;', null, true),
+          _buildQuestionTableRow('I.3.2 - administração do tempo e cumprimento de prazos;', null, true),
+          _buildQuestionTableRow('I.3.3 - uso adequado de equipamentos e instalações;', null, true),
+          _buildQuestionTableRow('I.3.4 - adaptação a trabalhos em equipe;', null, true),
+          _buildQuestionTableRow('I.3.5 - comportamento equilibrado no ambiente de trabalho.', null, true),
+          // II - Fatores operacionais
+          _buildSectionHeaderRow('II - Fatores operacionais / Produtividade:'),
+          _buildQuestionTableRow('II.1 - qualidade e exatidão na execução de tarefas;', null, true),
+          _buildQuestionTableRow('II.2 - aptidão para as funções do Emprego Público;', null, true),
+          _buildQuestionTableRow('II.3 - iniciativa e comportamento produtivo;', null, true),
+          _buildQuestionTableRow('II.4 - aproveitamento/racionalização de recursos e processos de trabalho;', null, true),
+          _buildQuestionTableRow('II.5 - volume de produção no trabalho sob sua responsabilidade;', null, true),
+          _buildQuestionTableRow('II.6 - aproveitamento de oportunidades de capacitação;', null, true),
+          _buildQuestionTableRow('II.7 - capacidade para auxiliar outros empregados públicos.', null, false), // última questão sem borda
         ],
       ),
     );
   }
 
+  pw.TableRow _buildSectionHeaderRow(String text) {
+    return pw.TableRow(
+      children: [
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          child: pw.Text(text, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+        ),
+        pw.Container(), // Coluna vazia
+      ],
+    );
+  }
+
+  pw.TableRow _buildSubsectionHeaderRow(String text) {
+    return pw.TableRow(
+      children: [
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          child: pw.Text(text, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+        ),
+        pw.Container(), // Coluna vazia
+      ],
+    );
+  }
+
+  pw.TableRow _buildQuestionTableRow(String text, int? score, bool withBorder) {
+    return pw.TableRow(
+      decoration: withBorder ? pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())) : null,
+      children: [
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          child: pw.Text(text, style: pw.TextStyle(fontSize: 9)),
+        ),
+        pw.Center(
+          child: score != null 
+            ? pw.Text('( X ) $score', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))
+            : pw.Text('', style: pw.TextStyle(fontSize: 10)),
+        ),
+      ],
+    );
+  }
+
+
+
   pw.Widget _buildFooter() {
     return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 5),
       child: pw.Row(
         children: [
           // Obs
@@ -465,7 +464,7 @@ class PdfService {
 
   pw.Widget _buildSignatures() {
       return pw.Padding(
-          padding: const pw.EdgeInsets.only(top: 20),
+          padding: const pw.EdgeInsets.only(top: 40),
           child: pw.Column(
               children: [
                    pw.Row(
@@ -474,7 +473,7 @@ class PdfService {
                           pw.Text('Itabira, em ____ de _______________ de 20__', style: pw.TextStyle(fontSize: 10)),
                       ]
                    ),
-                   pw.SizedBox(height: 15),
+                   pw.SizedBox(height: 50),
                    pw.Container(
                        width: 250,
                        decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
