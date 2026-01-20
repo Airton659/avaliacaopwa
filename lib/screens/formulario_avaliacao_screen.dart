@@ -6,6 +6,7 @@ import 'signature_screen.dart';
 import 'package:intl/intl.dart';
 import '../widgets/pdf_header_dialog.dart';
 import '../utils/situacao_helper.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class FormularioAvaliacaoScreen extends StatefulWidget {
   final String chapa;
@@ -52,6 +53,14 @@ class _FormularioAvaliacaoScreenState
   String? _photoUrl;
   Map<String, dynamic>? _signatureMetadata;
   Map<String, dynamic>? _pdfData;
+  final _audioPlayer = AudioPlayer();
+
+  @override
+  void dispose() {
+    _obsController.dispose();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -74,10 +83,16 @@ class _FormularioAvaliacaoScreenState
           : '${ano}_${widget.chapa}_GESTOR';
 
       final doc = await _firestore.collection('evaluations').doc(docId).get();
-
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
         final status = data['status'] as String? ?? 'pendente';
+
+        // Carregar pdfData se existir (independente do status)
+        if (data['pdfData'] != null) {
+          setState(() {
+            _pdfData = Map<String, dynamic>.from(data['pdfData']);
+          });
+        }
 
         // Travamento apenas se já foi assinada (concluida)
         // O usuário pediu: "depois q foi preenchida e assinada, não pode ser alterada mais"
@@ -208,8 +223,15 @@ class _FormularioAvaliacaoScreenState
             'employeeId': widget.chapa,
             'employeeSnapshot': widget.employeeData,
             'pdfData': newData,
+            'authorMatricula': widget.authorMatricula,
             'createdAt': FieldValue.serverTimestamp(),
           };
+
+          // Adicionar status se não existir no documento
+          // (merge: true preserva se já existir, mas precisamos definir para novos docs)
+          if (!doc.exists || doc.data()?['status'] == null) {
+            baseData['status'] = 'em_andamento';
+          }
 
           await _firestore
               .collection('evaluations')
@@ -466,11 +488,7 @@ class _FormularioAvaliacaoScreenState
     },
   ];
 
-  @override
-  void dispose() {
-    _obsController.dispose();
-    super.dispose();
-  }
+
 
   List<Map<String, dynamic>> get _questoesAtuais => _questoes;
 
@@ -1342,6 +1360,13 @@ class _FormularioAvaliacaoScreenState
       }, SetOptions(merge: true));
 
       if (mounted) {
+        // Tocar som de confirmação
+        try {
+           await _audioPlayer.play(UrlSource('assets/assets/sounds/urna.mp3'));
+        } catch (e) {
+           debugPrint('Erro ao tocar som: $e');
+        }
+
         // Mostrar mensagem de sucesso
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1349,9 +1374,16 @@ class _FormularioAvaliacaoScreenState
               'Avaliação salva com sucesso!',
             ),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
-        Navigator.pop(context, true); // Retorna true para atualizar o dashboard
+        
+        // Aguardar um pouco para o som tocar e o usuário ver a mensagem antes de sair
+        await Future.delayed(const Duration(milliseconds: 1500));
+        
+        if (mounted) {
+          Navigator.pop(context, true); // Retorna true para atualizar o dashboard
+        }
       }
 
     } catch (e) {
@@ -1478,4 +1510,6 @@ class _FormularioAvaliacaoScreenState
       return 'N/A';
     }
   }
+
+
 }

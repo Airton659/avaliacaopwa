@@ -269,36 +269,70 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        if (jaAvaliou) ...[
+                        if (jaAvaliou && avaliacaoData['status'] != null && avaliacaoData['status'] != 'pendente') ...[
                           const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.1),
-                              border: Border.all(color: Colors.green),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.check_circle, size: 14, color: Colors.green),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    avaliacaoData['displayInfo'] ?? 'Concluído',
-                                    style: const TextStyle(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                          Builder(
+                            builder: (context) {
+                              final status = avaliacaoData['status'];
+                              Color badgeColor;
+                              Color backgroundColor;
+                              IconData icon;
+                              String label;
+
+                              switch (status) {
+                                case 'em_andamento':
+                                  badgeColor = Colors.orange;
+                                  backgroundColor = Colors.orange.withValues(alpha: 0.1);
+                                  icon = Icons.edit;
+                                  label = 'Em Andamento';
+                                  break;
+                                case 'aguardando_assinatura':
+                                  badgeColor = Colors.blue;
+                                  backgroundColor = Colors.blue.withValues(alpha: 0.1);
+                                  icon = Icons.pending;
+                                  label = 'Aguardando Assinatura';
+                                  break;
+                                case 'concluida':
+                                  badgeColor = Colors.green;
+                                  backgroundColor = Colors.green.withValues(alpha: 0.1);
+                                  icon = Icons.check_circle;
+                                  // Para concluída, mostra data e usuário
+                                  label = avaliacaoData['displayInfo'] ?? 'Concluído';
+                                  break;
+                                default:
+                                  return const SizedBox.shrink();
+                              }
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
                                 ),
-                              ],
-                            ),
+                                decoration: BoxDecoration(
+                                  color: backgroundColor,
+                                  border: Border.all(color: badgeColor),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(icon, size: 14, color: badgeColor),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        label,
+                                        style: TextStyle(
+                                          color: badgeColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ],
