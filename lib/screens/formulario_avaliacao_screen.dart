@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'signature_screen.dart';
 import 'package:intl/intl.dart';
+import '../widgets/pdf_header_dialog.dart';
 import '../utils/situacao_helper.dart';
 
 class FormularioAvaliacaoScreen extends StatefulWidget {
@@ -50,6 +51,7 @@ class _FormularioAvaliacaoScreenState
   String? _signatureUrl;
   String? _photoUrl;
   Map<String, dynamic>? _signatureMetadata;
+  Map<String, dynamic>? _pdfData;
 
   @override
   void initState() {
@@ -127,6 +129,95 @@ class _FormularioAvaliacaoScreenState
            });
         }
       }
+
+      // --- LOGICA DE DADOS ADMINISTRATIVOS (PDF DATA) ---
+      if (widget.isAutoavaliacao && !_isReadOnly && mounted) {
+        bool needsSave = false;
+        Map<String, dynamic>? newData;
+
+        if (_pdfData != null && _pdfData!.isNotEmpty) {
+          // Pergunta se quer editar
+          final choice = await showDialog<String>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Dados do Anexo I'),
+              content: const Text(
+                  'Existem dados salvos (Tipo, Ocorrência, etc.). Deseja usar os dados salvos ou editar?'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, 'EDIT'),
+                    child: const Text('Editar')),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, 'USE'),
+                    child: const Text('Usar Salvos')),
+              ],
+            ),
+          );
+
+          if (choice == 'EDIT') {
+            newData = await showDialog<Map<String, dynamic>>(
+              context: context,
+              builder: (ctx) => PdfHeaderDialog(initialData: _pdfData),
+            );
+            if (newData != null) needsSave = true;
+          }
+        } else {
+          // Obrigatório preencher
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('Atenção'),
+              content: const Text(
+                  'Para iniciar a avaliação, é necessário preencher os dados administrativos do Anexo I (Tipo, Ocorrências, etc.).'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'))
+              ],
+            ),
+          );
+
+          newData = await showDialog<Map<String, dynamic>>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => PdfHeaderDialog(initialData: {}),
+          );
+
+          if (newData == null) {
+            if (mounted) Navigator.pop(context); // Abortar se cancelar
+            return;
+          }
+          needsSave = true;
+        }
+
+        if (needsSave && newData != null) {
+          setState(() {
+            _pdfData = newData;
+          });
+
+          // Garante campos mínimos se for criação (Merge)
+          // Define tipo padrão se não existir
+          // Nota: widget.employeeData é Map, toMap não necessário
+          final baseData = {
+            'id': docId,
+            'year': int.tryParse(ano.toString()) ?? 2026,
+            'tipo': widget.isAutoavaliacao
+                ? 'AUTO_OPERACIONAL' 
+                : (widget.isGerencial ? 'GERENCIAL' : 'OPERACIONAL'), // Melhoria: usar enum se possivel, mas string resolve
+            'employeeId': widget.chapa,
+            'employeeSnapshot': widget.employeeData,
+            'pdfData': newData,
+            'createdAt': FieldValue.serverTimestamp(),
+          };
+
+          await _firestore
+              .collection('evaluations')
+              .doc(docId)
+              .set(baseData, SetOptions(merge: true));
+        }
+      }
+      // --------------------------------------------------
     } catch (e) {
       debugPrint('Erro ao verificar avaliação existente: $e');
     }

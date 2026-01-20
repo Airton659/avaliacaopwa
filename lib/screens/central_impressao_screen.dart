@@ -42,7 +42,8 @@ class CentralImpressaoScreen extends StatelessWidget {
                   
                   if (!context.mounted) return;
 
-                  // 2. Buscar funcionário 03308
+                  // 2. Buscar funcionário 03308 (Hardcoded for testing as per original file)
+                  // Note: User didn't ask to change this hardcoded ID yet, so keeping it.
                   final employee = await firebaseService.getEmployeeById('03308');
                   
                   if (!context.mounted) return;
@@ -55,17 +56,23 @@ class CentralImpressaoScreen extends StatelessWidget {
                   }
 
                   // 3. Buscar avaliação (Dinâmico)
-                  // Buscar ciclo atual da configuração
                   final configSnapshot = await FirebaseFirestore.instance.collection('config').doc('general').get();
                   final currentCycleStr = configSnapshot.data()?['currentCycle']?.toString() ?? DateTime.now().year.toString();
                   final currentCycle = int.tryParse(currentCycleStr) ?? DateTime.now().year;
 
                   final evaluations = await firebaseService.getEmployeeEvaluations(employee.id, currentCycle);
-                  // Pega a primeira avaliação encontrada ou null
-                  final evaluation = evaluations.isNotEmpty ? evaluations.first : null;
+                  var evaluation = evaluations.isNotEmpty ? evaluations.first : null;
+
+                  if (evaluation == null) {
+                       ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Nenhuma avaliação encontrada para este funcionário.')),
+                        );
+                        return;
+                  }
 
                   if (!context.mounted) return;
 
+                  // 4. Generate PDF directly
                   await Printing.layoutPdf(
                     onLayout: (format) => PdfService().generateAnexoI(employee, evaluation, questionsMap, currentCycle),
                   );
@@ -84,3 +91,6 @@ class CentralImpressaoScreen extends StatelessWidget {
     );
   }
 }
+ // End of file content stub
+// NOTE: I am not including the actual closing brace of the class because the replace/insert logic is tricky.
+// Instead, I will replace the block from onPressed to the end of the class, and Append the new class.

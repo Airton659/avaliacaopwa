@@ -11,6 +11,7 @@ class Evaluation {
   final EmployeeSnapshot employeeSnapshot;
   final DateTime createdAt;
   final String? signatureUrl;
+  final Map<String, dynamic>? pdfData; // Stores persistent PDF headers (Tipo, Ocorrencia, etc.)
 
   Evaluation({
     required this.id,
@@ -21,6 +22,7 @@ class Evaluation {
     required this.employeeSnapshot,
     DateTime? createdAt,
     this.signatureUrl,
+    this.pdfData,
   }) : createdAt = createdAt ?? DateTime.now();
 
   static String generateId(int year, String employeeId, EvaluationType type) {
@@ -43,6 +45,7 @@ class Evaluation {
       'employeeSnapshot': employeeSnapshot.toMap(),
       'createdAt': createdAt.toIso8601String(),
       'signatureUrl': signatureUrl,
+      'pdfData': pdfData,
     };
   }
 
@@ -91,6 +94,7 @@ class Evaluation {
       ),
       createdAt: parsedCreatedAt,
       signatureUrl: data['signatureUrl'] as String?,
+      pdfData: data['pdfData'] as Map<String, dynamic>?,
     );
   }
 }

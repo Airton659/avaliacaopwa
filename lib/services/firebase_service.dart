@@ -69,7 +69,9 @@ class FirebaseService {
     final doc =
         await _firestore.collection('evaluations').doc(evaluationId).get();
     if (!doc.exists) return null;
-    return Evaluation.fromFirestore(doc.data()!);
+    final data = doc.data()!;
+    data['id'] = doc.id;
+    return Evaluation.fromFirestore(data);
   }
 
   Future<List<Evaluation>> getEmployeeEvaluations(
@@ -82,9 +84,11 @@ class FirebaseService {
         .where(FieldPath.documentId, isLessThan: '${year}_${employeeId}_\uf8ff')
         .get();
 
-    return snapshot.docs
-        .map((doc) => Evaluation.fromFirestore(doc.data()))
-        .toList();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return Evaluation.fromFirestore(data);
+    }).toList();
   }
 
   Future<List<Evaluation>> getEvaluationsByYear(int year) async {
@@ -93,9 +97,11 @@ class FirebaseService {
         .where('year', isEqualTo: year)
         .get();
 
-    return snapshot.docs
-        .map((doc) => Evaluation.fromFirestore(doc.data()))
-        .toList();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['id'] = doc.id;
+      return Evaluation.fromFirestore(data);
+    }).toList();
   }
 
   // Question operations

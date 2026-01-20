@@ -31,9 +31,9 @@ class PdfService {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              _buildHeader(periodoAvaliacao),
+              _buildHeader(periodoAvaliacao, evaluation),
               _buildIdentificationBlock(employee),
-              _buildFunctionalSituationBlock(employee),
+              _buildFunctionalSituationBlock(evaluation),
               pw.Expanded(
                 child: _buildEvaluationMatrix(evaluation, questions),
               ),
@@ -48,7 +48,17 @@ class PdfService {
     return pdf.save();
   }
 
-  pw.Widget _buildHeader(String periodoAvaliacao) {
+  pw.Widget _buildHeader(String periodoAvaliacao, Evaluation? evaluation) {
+    // Defaults
+    bool isAde = false;
+    bool isAdo = true;
+
+    if (evaluation?.pdfData != null) {
+        final type = evaluation!.pdfData!['tipoAvaliacao'] as String? ?? 'ADO';
+        isAde = type == 'ADE';
+        isAdo = type == 'ADO';
+    }
+
     return pw.Container(
       decoration: pw.BoxDecoration(border: pw.Border.all()),
       child: pw.Column(
@@ -111,9 +121,9 @@ class PdfService {
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.center,
                       children: [
-                        _buildCheckbox('ADE'),
+                        _buildCheckbox('ADE', checked: isAde),
                         pw.SizedBox(width: 15),
-                        _buildCheckbox('ADO', checked: true),
+                        _buildCheckbox('ADO', checked: isAdo),
                       ],
                     ),
                   ],
@@ -236,7 +246,35 @@ class PdfService {
      return _buildCellContent(label, value); // Reusing for compatibility
   }
 
-  pw.Widget _buildFunctionalSituationBlock(Employee employee) {
+  pw.Widget _buildFunctionalSituationBlock(Evaluation? evaluation) {
+    // Defaults
+    bool ocorrenciaSim = false;
+    bool ocorrenciaNao = true;
+    
+    bool comissionado = false;
+    bool disponibilidade = false;
+    bool desvio = false;
+    bool provimento = false;
+
+    bool condicaoSim = true;
+    bool condicaoNao = false;
+
+    if (evaluation?.pdfData != null) {
+        final data = evaluation!.pdfData!;
+        final ocorrencia = data['ocorrenciaDisciplinar'] as bool? ?? false;
+        ocorrenciaSim = ocorrencia;
+        ocorrenciaNao = !ocorrencia;
+
+        comissionado = data['empregoComissionado'] as bool? ?? false;
+        disponibilidade = data['disponibilidade'] as bool? ?? false;
+        desvio = data['desvioFuncao'] as bool? ?? false;
+        provimento = data['empregoProvimento'] as bool? ?? false;
+
+        final condicao = data['condicoesAvaliacao'] as bool? ?? true;
+        condicaoSim = condicao;
+        condicaoNao = !condicao;
+    }
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border(left: pw.BorderSide(), right: pw.BorderSide(), bottom: pw.BorderSide()),
@@ -263,9 +301,9 @@ class PdfService {
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.center,
                       children: [
-                        _buildCheckbox('SIM'),
+                        _buildCheckbox('SIM', checked: ocorrenciaSim),
                         pw.SizedBox(width: 10),
-                        _buildCheckbox('NÃO'),
+                        _buildCheckbox('NÃO', checked: ocorrenciaNao),
                       ],
                     ),
                   ],
@@ -278,10 +316,10 @@ class PdfService {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   mainAxisAlignment: pw.MainAxisAlignment.center,
                   children: [
-                    _buildCheckboxRow('Emprego Público comissionado:'),
-                    _buildCheckboxRow('Disponibilidade:'),
-                    _buildCheckboxRow('Desvio de função:'),
-                    _buildCheckboxRow('Emprego Público de provimento:'),
+                    _buildCheckboxRow('Emprego Público comissionado:', checked: comissionado),
+                    _buildCheckboxRow('Disponibilidade:', checked: disponibilidade),
+                    _buildCheckboxRow('Desvio de função:', checked: desvio),
+                    _buildCheckboxRow('Emprego Público de provimento:', checked: provimento),
                   ],
                 ),
               ),
@@ -296,9 +334,9 @@ class PdfService {
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.center,
                       children: [
-                        _buildCheckbox('SIM'),
+                        _buildCheckbox('SIM', checked: condicaoSim),
                         pw.SizedBox(width: 10),
-                        _buildCheckbox('NÃO'),
+                        _buildCheckbox('NÃO', checked: condicaoNao),
                       ],
                     ),
                   ],
@@ -311,15 +349,11 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildCheckboxRow(String text) {
+  pw.Widget _buildCheckboxRow(String text, {required bool checked}) {
     return pw.Row(
       children: [
         pw.Expanded(child: pw.Text(text, style: pw.TextStyle(fontSize: 8))),
-        pw.Container(
-          width: 10,
-          height: 10,
-          decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.5)),
-        ),
+        _buildCheckbox('', checked: checked),
       ],
     );
   }
@@ -347,10 +381,9 @@ class PdfService {
 
   pw.Widget _buildEvaluationMatrix(Evaluation? evaluation, List<Map<String, dynamic>> questions) {
     // Filter only active questions AND type 'OPERACIONAL' for Anexo I
-    // STRICT MATCHING to align with FormularioAvaliacaoScreen Firestore Query
     final activeQuestions = questions.where((q) {
-      final isActive = q['ativo'] as bool? ?? false; // Default to false (Firestore excludes nulls in where clause)
-      final type = q['tipo'] as String? ?? ''; // Default to empty (Firestore excludes nulls)
+      final isActive = q['ativo'] as bool? ?? false; 
+      final type = q['tipo'] as String? ?? ''; 
       return isActive && type == 'OPERACIONAL';
     }).toList();
     
@@ -375,7 +408,6 @@ class PdfService {
 
     final List<pw.TableRow> rows = [];
     int questionIndex = 0;
-    final totalQuestions = activeQuestions.length;
     
     // Sort secoes
     final sortedSecoes = grouped.keys.toList()..sort();
@@ -391,22 +423,35 @@ class PdfService {
         // Add subsecao header
         rows.add(_buildSubsectionHeaderRow(subsecao));
         
+        // Extract prefix from subsecao or secao
+        String prefix = '';
+        if (subsecao.isNotEmpty && subsecao.contains(' -')) {
+            prefix = subsecao.split(' -')[0].trim();
+        } else if (subsecao.isEmpty && secao.contains(' -')) {
+            // Fallback: use Section numbering (e.g., "II") if subsection is empty
+            prefix = secao.split(' -')[0].trim();
+        }
+
         final perguntas = subsecoes[subsecao]!;
         
         for (int i = 0; i < perguntas.length; i++) {
           final pergunta = perguntas[i];
-          final texto = pergunta['pergunta'] as String;
-          final legacyQuestionId = 'q$questionIndex'; // Legacy index-based key
-          final stableQuestionId = pergunta['id'] as String? ?? ''; // Stable FK key
+          final rawText = pergunta['pergunta'] as String;
+          final legacyQuestionId = 'q$questionIndex'; 
+          final stableQuestionId = pergunta['id'] as String? ?? ''; 
           
           questionIndex++;
           
-          final isLast = questionIndex == totalQuestions;
+          // Construct numbered text: "I.1.1 - texto"
+          String numberedText = rawText;
+          if (prefix.isNotEmpty) {
+              numberedText = '$prefix.${i + 1} - $rawText';
+          }
 
           // Try stable ID first, then legacy fallback
           final score = _getScore(evaluation, stableQuestionId) ?? _getScore(evaluation, legacyQuestionId);
           
-          rows.add(_buildQuestionTableRow(texto, score, !isLast));
+          rows.add(_buildQuestionTableRow(numberedText, score, true)); // Always border for now, cleaner
         }
       }
     }
@@ -421,8 +466,14 @@ class PdfService {
       ),
       child: pw.Table(
         columnWidths: {
-          0: const pw.FlexColumnWidth(6),
-          1: const pw.FlexColumnWidth(4),
+          0: const pw.FlexColumnWidth(1), // Takes remaining space
+          1: const pw.FixedColumnWidth(140), // Matches Functional Block Column 3 + Separator
+          // Functional Block Cols: 110 (Fixed) | Flex(2) | 140 (Fixed)
+          // Wait. The Functional block has 3 cols. The separator is between col 2 and 3.
+          // The vertical line is at X = Width - 140.
+          // So here, if we have 2 cols, and we want the vertical line at X = Width - 140,
+          // Col 2 must be Fixed(140). Col 1 is Flex.
+          // Correct.
         },
         border: pw.TableBorder(verticalInside: pw.BorderSide()),
         children: rows,
@@ -474,7 +525,7 @@ class PdfService {
 
 
   pw.Widget _buildFooter(Evaluation? evaluation, List<Map<String, dynamic>> questions) {
-    // Calculate Total Score based on displayed questions
+    // Calculate Total Score
     int totalScore = 0;
     if (evaluation != null) {
       final activeQuestions = questions.where((q) {
@@ -483,22 +534,6 @@ class PdfService {
         return isActive && type == 'OPERACIONAL';
       }).toList();
 
-      for (var q in activeQuestions) {
-        final id = q['id'] as String? ?? '';
-        // Need to handle legacy vs new IDs same way as matrix
-        // Optimization: matrix logic is inside the loop. 
-        // We can just rely on the map lookup.
-        // Assuming evaluation.answers has the correct keys. 
-        // Note: The Matrix uses index fallback q0, q1... 
-        // We need to replicate that if we want EXACT match of what's shown.
-        // However, calculating "q0, q1" logic here implies we need sorting first.
-        
-        // Let's sort to be safe, though lookup is by ID usually.
-        // If the answer is keyed by 'q0' legacy, we need to know which question corresponds to 'q0'.
-        // So we MUST sort.
-      }
-      
-      // Replicating sort logic
       activeQuestions.sort((a, b) => (a['ordem'] as int? ?? 0).compareTo(b['ordem'] as int? ?? 0));
       
       int index = 0;
@@ -519,59 +554,48 @@ class PdfService {
         : 'NADA CONSTA';
 
     return pw.Container(
-      child: pw.Row(
-        children: [
-          // Obs
-          pw.Expanded(
-            flex: 6,
-            child: pw.Container(
-              height: 40,
-              decoration: pw.BoxDecoration(border: pw.Border.all()),
-              padding: const pw.EdgeInsets.all(5),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+       decoration: pw.BoxDecoration(
+          border: pw.Border(left: pw.BorderSide(), right: pw.BorderSide(), bottom: pw.BorderSide())
+       ),
+       child: pw.Table(
+          columnWidths: {
+            0: const pw.FlexColumnWidth(1), 
+            1: const pw.FixedColumnWidth(140),
+          },
+          border: pw.TableBorder(verticalInside: pw.BorderSide()),
+          children: [
+             pw.TableRow(
                 children: [
-                   pw.Text('Obs.:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                   pw.Text(obsText, style: pw.TextStyle(fontSize: 9)),
+                   // Obs Column
+                   pw.Container(
+                     height: 40,
+                     padding: const pw.EdgeInsets.all(5),
+                     child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                           pw.Text('Obs.:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                           pw.Text(obsText, style: pw.TextStyle(fontSize: 9)),
+                        ]
+                     ),
+                   ),
+                   // Total Column (Centered)
+                   pw.Container(
+                      height: 40,
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 5),
+                      alignment: pw.Alignment.centerLeft,
+                      child: pw.Row(
+                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                         children: [
+                            pw.Text('Total', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                            if (evaluation != null)
+                              pw.Text('$totalScore', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                         ]
+                      )
+                   )
                 ]
-              ),
-            ),
-          ),
-          // Total/Conceito
-          pw.Expanded(
-            flex: 2,
-            child: pw.Column(
-              children: [
-                pw.Container(
-                  height: 20,
-                   decoration: pw.BoxDecoration(
-                      border: pw.Border(top: pw.BorderSide(), right: pw.BorderSide(), bottom: pw.BorderSide())
-                   ),
-                   padding: const pw.EdgeInsets.symmetric(horizontal: 5),
-                   alignment: pw.Alignment.centerLeft,
-                   child: pw.Row(
-                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                     children: [
-                       pw.Text('Total', style: pw.TextStyle(fontSize: 9)),
-                       if (evaluation != null)
-                         pw.Text('$totalScore', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                     ]
-                   ),
-                ),
-                 pw.Container(
-                  height: 20,
-                   decoration: pw.BoxDecoration(
-                      border: pw.Border(right: pw.BorderSide(), bottom: pw.BorderSide())
-                   ),
-                   padding: const pw.EdgeInsets.only(left: 5),
-                   alignment: pw.Alignment.centerLeft,
-                   child: pw.Text('Conceito', style: pw.TextStyle(fontSize: 9)),
-                )
-              ]
-            )
-          ),
-        ],
-      ),
+             )
+          ]
+       )
     );
   }
 
