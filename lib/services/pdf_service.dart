@@ -637,7 +637,760 @@ class PdfService {
                    pw.Text('Empregado', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
               ]
           )
-      );
+  }
+
+  /// Anexo II - Avaliação do Gestor (Operacional)
+  Future<Uint8List> generateAnexoII(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+    final pdf = pw.Document();
+
+    final startYear = cycle - 1;
+    final endYear = cycle;
+    final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
+
+    pw.ImageProvider? signatureImage;
+    if (evaluation?.signatureUrl != null && evaluation!.signatureUrl!.isNotEmpty) {
+      try {
+        signatureImage = await networkImage(evaluation.signatureUrl!);
+      } catch (e) {
+        print('Error loading signature image: $e');
+      }
+    }
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _buildHeaderAnexoII(periodoAvaliacao, evaluation),
+              _buildIdentificationBlock(employee),
+              _buildFunctionalSituationBlock(evaluation),
+              pw.Expanded(
+                child: _buildEvaluationMatrix(evaluation, questions),
+              ),
+              _buildFooter(evaluation, questions),
+              _buildSignatures(evaluation, signatureImage),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  /// Anexo III - Consolidado Operacional (Média AUTO + GESTOR)
+  Future<Uint8List> generateAnexoIII(
+    Employee employee,
+    Evaluation? autoEval,
+    Evaluation? gestorEval,
+    List<Map<String, dynamic>> questions,
+    int cycle,
+  ) async {
+    final pdf = pw.Document();
+
+    final startYear = cycle - 1;
+    final endYear = cycle;
+    final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _buildHeaderAnexoIII(periodoAvaliacao, autoEval),
+              _buildIdentificationBlock(employee),
+              _buildFunctionalSituationBlockConsolidated(autoEval, gestorEval),
+              pw.Expanded(
+                child: _buildConsolidatedMatrix(autoEval, gestorEval, questions),
+              ),
+              _buildConsolidatedFooter(autoEval, gestorEval, questions),
+              _buildConsolidatedSignatures(), // TODO: Assinatura do presidente da comissão
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  /// Anexo IV - Autoavaliação Gerencial
+  Future<Uint8List> generateAnexoIV(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+    final pdf = pw.Document();
+
+    final startYear = cycle - 1;
+    final endYear = cycle;
+    final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
+
+    pw.ImageProvider? signatureImage;
+    if (evaluation?.signatureUrl != null && evaluation!.signatureUrl!.isNotEmpty) {
+      try {
+        signatureImage = await networkImage(evaluation.signatureUrl!);
+      } catch (e) {
+        print('Error loading signature image: $e');
+      }
+    }
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _buildHeaderAnexoIV(periodoAvaliacao, evaluation),
+              _buildIdentificationBlock(employee),
+              _buildFunctionalSituationBlock(evaluation),
+              pw.Expanded(
+                child: _buildEvaluationMatrix(evaluation, questions),
+              ),
+              _buildFooter(evaluation, questions),
+              _buildSignatures(evaluation, signatureImage),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  /// Anexo V - Avaliação do Gestor (Gerencial)
+  Future<Uint8List> generateAnexoV(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+    final pdf = pw.Document();
+
+    final startYear = cycle - 1;
+    final endYear = cycle;
+    final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
+
+    pw.ImageProvider? signatureImage;
+    if (evaluation?.signatureUrl != null && evaluation!.signatureUrl!.isNotEmpty) {
+      try {
+        signatureImage = await networkImage(evaluation.signatureUrl!);
+      } catch (e) {
+        print('Error loading signature image: $e');
+      }
+    }
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _buildHeaderAnexoV(periodoAvaliacao, evaluation),
+              _buildIdentificationBlock(employee),
+              _buildFunctionalSituationBlock(evaluation),
+              pw.Expanded(
+                child: _buildEvaluationMatrix(evaluation, questions),
+              ),
+              _buildFooter(evaluation, questions),
+              _buildSignatures(evaluation, signatureImage),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  /// Anexo VI - Consolidado Gerencial (Média AUTO_GERENCIAL + GESTOR_GERENCIAL)
+  Future<Uint8List> generateAnexoVI(
+    Employee employee,
+    Evaluation? autoEval,
+    Evaluation? gestorEval,
+    List<Map<String, dynamic>> questions,
+    int cycle,
+  ) async {
+    final pdf = pw.Document();
+
+    final startYear = cycle - 1;
+    final endYear = cycle;
+    final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _buildHeaderAnexoVI(periodoAvaliacao, autoEval),
+              _buildIdentificationBlock(employee),
+              _buildFunctionalSituationBlockConsolidated(autoEval, gestorEval),
+              pw.Expanded(
+                child: _buildConsolidatedMatrix(autoEval, gestorEval, questions),
+              ),
+              _buildConsolidatedFooter(autoEval, gestorEval, questions),
+              _buildConsolidatedSignatures(), // TODO: Assinatura do presidente da comissão
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  // ========== BUILD METHODS FOR NEW ANEXOS ==========
+
+  pw.Widget _buildHeaderAnexoII(String periodoAvaliacao, Evaluation? evaluation) {
+    bool isAde = false;
+    bool isAdo = true;
+
+    if (evaluation?.pdfData != null) {
+      final type = evaluation!.pdfData!['tipoAvaliacao'] as String? ?? 'ADO';
+      isAde = type == 'ADE';
+      isAdo = type == 'ADO';
+    }
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(border: pw.Border.all()),
+      child: pw.Column(
+        children: [
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide()),
+            ),
+            padding: const pw.EdgeInsets.all(5),
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              'ANEXO II - a ser preenchido pelo GESTOR imediato do empregado que não exerce funções gerenciais',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              textAlign: pw.TextAlign.center,
+            ),
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(8),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Empresa de Desenvolvimento de Itabira Ltda.',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Processo de Avaliação de Desempenho Individual',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.Container(
+                width: 180,
+                margin: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
+                  children: [
+                    pw.Text('Período de Avaliação', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(periodoAvaliacao, style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 5),
+                    pw.Text('Tipo', style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 2),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        _buildCheckbox('ADE', checked: isAde),
+                        pw.SizedBox(width: 15),
+                        _buildCheckbox('ADO', checked: isAdo),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildHeaderAnexoIII(String periodoAvaliacao, Evaluation? evaluation) {
+    bool isAde = false;
+    bool isAdo = true;
+
+    if (evaluation?.pdfData != null) {
+      final type = evaluation!.pdfData!['tipoAvaliacao'] as String? ?? 'ADO';
+      isAde = type == 'ADE';
+      isAdo = type == 'ADO';
+    }
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(border: pw.Border.all()),
+      child: pw.Column(
+        children: [
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide()),
+            ),
+            padding: const pw.EdgeInsets.all(5),
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              'ANEXO III - RELATÓRIO FINAL (Operacional)',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              textAlign: pw.TextAlign.center,
+            ),
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(8),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Empresa de Desenvolvimento de Itabira Ltda.',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Processo de Avaliação de Desempenho Individual',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.Container(
+                width: 180,
+                margin: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
+                  children: [
+                    pw.Text('Período de Avaliação', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(periodoAvaliacao, style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 5),
+                    pw.Text('Tipo', style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 2),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        _buildCheckbox('ADE', checked: isAde),
+                        pw.SizedBox(width: 15),
+                        _buildCheckbox('ADO', checked: isAdo),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildHeaderAnexoIV(String periodoAvaliacao, Evaluation? evaluation) {
+    bool isAde = false;
+    bool isAdo = true;
+
+    if (evaluation?.pdfData != null) {
+      final type = evaluation!.pdfData!['tipoAvaliacao'] as String? ?? 'ADO';
+      isAde = type == 'ADE';
+      isAdo = type == 'ADO';
+    }
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(border: pw.Border.all()),
+      child: pw.Column(
+        children: [
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide()),
+            ),
+            padding: const pw.EdgeInsets.all(5),
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              'ANEXO IV - a ser preenchido pelo próprio empregado que assume funções gerenciais',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              textAlign: pw.TextAlign.center,
+            ),
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(8),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Empresa de Desenvolvimento de Itabira Ltda.',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Processo de Avaliação de Desempenho Individual',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.Container(
+                width: 180,
+                margin: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
+                  children: [
+                    pw.Text('Período de Avaliação', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(periodoAvaliacao, style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 5),
+                    pw.Text('Tipo', style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 2),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        _buildCheckbox('ADE', checked: isAde),
+                        pw.SizedBox(width: 15),
+                        _buildCheckbox('ADO', checked: isAdo),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildHeaderAnexoV(String periodoAvaliacao, Evaluation? evaluation) {
+    bool isAde = false;
+    bool isAdo = true;
+
+    if (evaluation?.pdfData != null) {
+      final type = evaluation!.pdfData!['tipoAvaliacao'] as String? ?? 'ADO';
+      isAde = type == 'ADE';
+      isAdo = type == 'ADO';
+    }
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(border: pw.Border.all()),
+      child: pw.Column(
+        children: [
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide()),
+            ),
+            padding: const pw.EdgeInsets.all(5),
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              'ANEXO V - a ser preenchido pelo GESTOR imediato do empregado que exerce funções gerenciais',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              textAlign: pw.TextAlign.center,
+            ),
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(8),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Empresa de Desenvolvimento de Itabira Ltda.',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Processo de Avaliação de Desempenho Individual',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.Container(
+                width: 180,
+                margin: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
+                  children: [
+                    pw.Text('Período de Avaliação', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(periodoAvaliacao, style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 5),
+                    pw.Text('Tipo', style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 2),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        _buildCheckbox('ADE', checked: isAde),
+                        pw.SizedBox(width: 15),
+                        _buildCheckbox('ADO', checked: isAdo),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildHeaderAnexoVI(String periodoAvaliacao, Evaluation? evaluation) {
+    bool isAde = false;
+    bool isAdo = true;
+
+    if (evaluation?.pdfData != null) {
+      final type = evaluation!.pdfData!['tipoAvaliacao'] as String? ?? 'ADO';
+      isAde = type == 'ADE';
+      isAdo = type == 'ADO';
+    }
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(border: pw.Border.all()),
+      child: pw.Column(
+        children: [
+          pw.Container(
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide()),
+            ),
+            padding: const pw.EdgeInsets.all(5),
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              'ANEXO VI - RELATÓRIO FINAL (Gerencial)',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+              textAlign: pw.TextAlign.center,
+            ),
+          ),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(8),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Empresa de Desenvolvimento de Itabira Ltda.',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'Processo de Avaliação de Desempenho Individual',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Text(
+                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.Container(
+                width: 180,
+                margin: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                padding: const pw.EdgeInsets.all(5),
+                child: pw.Column(
+                  children: [
+                    pw.Text('Período de Avaliação', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(periodoAvaliacao, style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 5),
+                    pw.Text('Tipo', style: pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 2),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.center,
+                      children: [
+                        _buildCheckbox('ADE', checked: isAde),
+                        pw.SizedBox(width: 15),
+                        _buildCheckbox('ADO', checked: isAdo),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildFunctionalSituationBlockConsolidated(Evaluation? autoEval, Evaluation? gestorEval) {
+    // Use data from autoEval preferably, fallback to gestorEval
+    final evaluation = autoEval ?? gestorEval;
+    return _buildFunctionalSituationBlock(evaluation);
+  }
+
+  pw.Widget _buildConsolidatedMatrix(
+    Evaluation? autoEval,
+    Evaluation? gestorEval,
+    List<Map<String, dynamic>> questions,
+  ) {
+    final autoRespostas = autoEval?.respostas ?? {};
+    final gestorRespostas = gestorEval?.respostas ?? {};
+
+    return pw.Table(
+      border: pw.TableBorder.all(),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(4), // Pergunta
+        1: const pw.FixedColumnWidth(50), // Auto
+        2: const pw.FixedColumnWidth(50), // Gestor
+        3: const pw.FixedColumnWidth(50), // Média
+      },
+      children: [
+        // Header
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(4),
+              child: pw.Text('Pergunta', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(4),
+              child: pw.Text('Auto', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), textAlign: pw.TextAlign.center),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(4),
+              child: pw.Text('Gestor', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), textAlign: pw.TextAlign.center),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(4),
+              child: pw.Text('Média', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), textAlign: pw.TextAlign.center),
+            ),
+          ],
+        ),
+        // Data rows
+        ...questions.map((q) {
+          final id = q['id'] as String;
+          final pergunta = q['pergunta'] as String;
+          final autoScore = autoRespostas[id] ?? 0;
+          final gestorScore = gestorRespostas[id] ?? 0;
+          final media = (autoScore + gestorScore) / 2;
+
+          return pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(4),
+                child: pw.Text(pergunta, style: const pw.TextStyle(fontSize: 7)),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(4),
+                child: pw.Text(autoScore.toString(), style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(4),
+                child: pw.Text(gestorScore.toString(), style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+              ),
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(4),
+                child: pw.Text(media.toStringAsFixed(1), style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+              ),
+            ],
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  pw.Widget _buildConsolidatedFooter(
+    Evaluation? autoEval,
+    Evaluation? gestorEval,
+    List<Map<String, dynamic>> questions,
+  ) {
+    final autoTotal = autoEval?.media ?? 0.0;
+    final gestorTotal = gestorEval?.media ?? 0.0;
+    final mediaFinal = (autoTotal + gestorTotal) / 2;
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(),
+      ),
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.end,
+        children: [
+          pw.Text(
+            'TOTAL: Auto: ${autoTotal.toStringAsFixed(2)} | Gestor: ${gestorTotal.toStringAsFixed(2)} | MÉDIA FINAL: ${mediaFinal.toStringAsFixed(2)}',
+            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildConsolidatedSignatures() {
+    // TODO: Implementar assinatura do presidente da comissão
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 10),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            'ASSINATURA DO PRESIDENTE DA COMISSÃO',
+            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 20),
+          pw.Container(
+            height: 60,
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.grey400),
+            ),
+            child: pw.Center(
+              child: pw.Text(
+                '[Assinatura do Presidente]',
+                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _getMonthName(int month) {
