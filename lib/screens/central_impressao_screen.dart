@@ -41,15 +41,25 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
   }
 
   Future<List<EmployeeWithEvaluations>> _getEmployeesWithEvaluations() async {
-    // 1. Get all active employees
-    final employeesSnapshot = await _firestore
-        .collection('funcionarios')
-        .where('ativo', isEqualTo: true)
+    final employeesSnapshot = await _firestore.collection('funcionarios').where('situacao', isEqualTo: 'Ativo').get();
+    
+    // FETCH OPTIMIZATION: Get all evaluations for the year in ONE query
+    // instead of N queries per employee.
+    final yearStr = _selectedYear.toString();
+    final evaluationsSnapshot = await _firestore
+        .collection('evaluations')
+        .where('ano', isEqualTo: yearStr)
         .get();
 
+    // Create a lookup map for evaluations: Map<DocId, Data>
+    final Map<String, Map<String, dynamic>> evaluationsMap = {};
+    for (var doc in evaluationsSnapshot.docs) {
+      evaluationsMap[doc.id] = doc.data();
+    }
+    
     final List<EmployeeWithEvaluations> result = [];
 
-    // 2. For each employee, fetch AUTO and GESTOR evaluations
+    // 2. For each employee, lookup in local map
     for (final doc in employeesSnapshot.docs) {
       final data = doc.data();
       final chapa = doc.id;
@@ -71,12 +81,14 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
         }
       }
 
-      // Fetch evaluations for this employee
+      // Lookup evaluations using known ID pattern
+      // docId pattern: {year}_{chapa}_{TYPE}
+      // Note: FormularioAvaliacaoScreen saves using 'ano' as string.
       final autoDocId = '${_selectedYear}_${chapa}_AUTO';
       final gestorDocId = '${_selectedYear}_${chapa}_GESTOR';
 
-      final autoDoc = await _firestore.collection('evaluations').doc(autoDocId).get();
-      final gestorDoc = await _firestore.collection('evaluations').doc(gestorDocId).get();
+      final autoData = evaluationsMap[autoDocId];
+      final gestorData = evaluationsMap[gestorDocId];
 
       final employeeWithEval = EmployeeWithEvaluations(
         chapa: chapa,
@@ -85,8 +97,8 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
         nivel: data['nivel']?.toString(),
         situacao: data['situacao']?.toString() ?? '',
         isManager: data['isManager'] ?? false,
-        autoEvaluation: autoDoc.exists ? autoDoc.data() : null,
-        gestorEvaluation: gestorDoc.exists ? gestorDoc.data() : null,
+        autoEvaluation: autoData,
+        gestorEvaluation: gestorData,
       );
 
       // Only include if has at least one evaluation
