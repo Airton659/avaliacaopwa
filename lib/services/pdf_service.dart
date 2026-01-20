@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -636,7 +637,8 @@ class PdfService {
                    pw.SizedBox(height: 2),
                    pw.Text('Empregado', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
               ]
-          )
+          ),
+      );
   }
 
   /// Anexo II - Avaliação do Gestor (Operacional)
@@ -1271,8 +1273,8 @@ class PdfService {
     Evaluation? gestorEval,
     List<Map<String, dynamic>> questions,
   ) {
-    final autoRespostas = autoEval?.respostas ?? {};
-    final gestorRespostas = gestorEval?.respostas ?? {};
+    final autoRespostas = autoEval?.answers ?? {};
+    final gestorRespostas = gestorEval?.answers ?? {};
 
     return pw.Table(
       border: pw.TableBorder.all(),
@@ -1343,8 +1345,8 @@ class PdfService {
     Evaluation? gestorEval,
     List<Map<String, dynamic>> questions,
   ) {
-    final autoTotal = autoEval?.media ?? 0.0;
-    final gestorTotal = gestorEval?.media ?? 0.0;
+    final autoTotal = autoEval?.average ?? 0.0;
+    final gestorTotal = gestorEval?.average ?? 0.0;
     final mediaFinal = (autoTotal + gestorTotal) / 2;
 
     return pw.Container(
