@@ -125,21 +125,21 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
                         final employeeId = doc.id;
 
                         // Buscar avaliação deste funcionário (se houver) para o ano configurado
-                        return StreamBuilder<QuerySnapshot>(
+                        // FIX: Target specifically the GESTOR evaluation document
+                        final evalDocId = '${ano}_${employeeId}_GESTOR';
+                        
+                        return StreamBuilder<DocumentSnapshot>(
                           stream: _firestore
                               .collection('evaluations')
-                              .where('employeeId', isEqualTo: employeeId)
-                              .where('ano', isEqualTo: ano) // Filtro dinâmico
-                              .limit(1)
+                              .doc(evalDocId)
                               .snapshots(),
                           builder: (context, evalSnapshot) {
                             String status = 'pendente';
                             String? evalId;
                             Map<String, dynamic>? evalData;
 
-                            if (evalSnapshot.hasData &&
-                                evalSnapshot.data!.docs.isNotEmpty) {
-                              final evalDoc = evalSnapshot.data!.docs.first;
+                            if (evalSnapshot.hasData && evalSnapshot.data!.exists) {
+                              final evalDoc = evalSnapshot.data!;
                               evalData = evalDoc.data() as Map<String, dynamic>;
                               status = evalData['status'] ?? 'pendente';
                               evalId = evalDoc.id;
@@ -358,7 +358,7 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
           chapa: employeeId,
           employeeData: employeeData,
           authorMatricula: widget.userMatricula, // Manager is Author
-          isGerencial: false,
+          isGerencial: employeeData['isManager'] ?? false,
           isAutoavaliacao: false,
           allowSaveWithoutSignature: true,
         ),
