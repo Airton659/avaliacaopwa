@@ -2,6 +2,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:printing/printing.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
 import '../models/employee_with_evaluations.dart';
 import '../services/pdf_service.dart';
 import '../services/firebase_service.dart';
@@ -23,6 +25,51 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
   String? _filtroSituacao;
   int _selectedYear = DateTime.now().year;
   bool _keepSelection = false;
+  
+  // Bulk Selection State
+  final Set<String> _selectedAnexos = {}; // e.g., {'I', 'II'}
+  final Set<String> _selectedEmployees = {}; // Stores checked employee 'chapa's
+
+  void _toggleAnexo(String key, bool selected) {
+    setState(() {
+      if (selected) {
+        // Exclusion Logic:
+        // Group A: I, II, III (Operacional)
+        // Group B: IV, V, VI (Gerencial)
+        if (['I', 'II', 'III'].contains(key)) {
+           _selectedAnexos.removeWhere((k) => ['IV', 'V', 'VI'].contains(k));
+        } else if (['IV', 'V', 'VI'].contains(key)) {
+           _selectedAnexos.removeWhere((k) => ['I', 'II', 'III'].contains(k));
+        }
+        _selectedAnexos.add(key);
+      } else {
+        _selectedAnexos.remove(key);
+      }
+    });
+  }
+
+  void _toggleEmployee(String chapa, bool? selected) {
+    setState(() {
+      if (selected == true) {
+        _selectedEmployees.add(chapa);
+      } else {
+        _selectedEmployees.remove(chapa);
+      }
+    });
+  }
+
+  void _toggleAll(List<EmployeeWithEvaluations> currentList) {
+    final allChapas = currentList.map((e) => e.chapa).toSet();
+    final allSelected = allChapas.every((c) => _selectedEmployees.contains(c));
+    
+    setState(() {
+      if (allSelected) {
+        _selectedEmployees.removeAll(allChapas);
+      } else {
+        _selectedEmployees.addAll(allChapas);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -41,11 +88,11 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
   }
 
   Future<List<EmployeeWithEvaluations>> _getEmployeesWithEvaluations() async {
-    final employeesSnapshot = await _firestore.collection('funcionarios').where('situacao', isEqualTo: 'Ativo').get();
+    final employeesSnapshot = await _firestore.collection('funcionarios').get();
     
     // FETCH OPTIMIZATION: Get all evaluations for the year in ONE query
-    // instead of N queries per employee.
     final yearStr = _selectedYear.toString();
+    
     final evaluationsSnapshot = await _firestore
         .collection('evaluations')
         .where('ano', isEqualTo: yearStr)
@@ -100,6 +147,27 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
         autoEvaluation: autoData,
         gestorEvaluation: gestorData,
       );
+
+      // Anexo Filter
+      if (_selectedAnexos.isNotEmpty) {
+        bool match = false;
+        
+        // Check Operacional Anexos (I, II, III)
+        if (!employeeWithEval.isManager) {
+           if (_selectedAnexos.contains('I') && employeeWithEval.autoEvaluation != null) match = true;
+           if (_selectedAnexos.contains('II') && employeeWithEval.gestorEvaluation != null) match = true;
+           if (_selectedAnexos.contains('III') && employeeWithEval.hasAnyEvaluation) match = true;
+        } 
+        
+        // Check Gerencial Anexos (IV, V, VI)
+        if (employeeWithEval.isManager) { 
+           if (_selectedAnexos.contains('IV') && employeeWithEval.autoEvaluation != null) match = true;
+           if (_selectedAnexos.contains('V') && employeeWithEval.gestorEvaluation != null) match = true;
+           if (_selectedAnexos.contains('VI') && employeeWithEval.hasAnyEvaluation) match = true;
+        }
+
+        if (!match) continue;
+      }
 
       // Only include if has at least one evaluation
       if (employeeWithEval.hasAnyEvaluation) {
@@ -196,6 +264,132 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  Future<void> _generateBulkPDF(List<EmployeeWithEvaluations> allEmployees) async {
+    if (_selectedEmployees.isEmpty || _selectedAnexos.isEmpty) return;
+
+    // Filter list to selected IDs
+    final selectedList = allEmployees.where((e) => _selectedEmployees.contains(e.chapa)).toList();
+    
+    // Progress State
+    int processed = 0;
+    int total = selectedList.length * _selectedAnexos.length;
+    
+    // Show Progress Dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+             return AlertDialog(
+               title: const Text('Gerando Relatórios...'),
+               content: Column(
+                 mainAxisSize: MainAxisSize.min,
+                 children: [
+                   LinearProgressIndicator(),
+                   const SizedBox(height: 10),
+                   Text('Processando documentação... Aguarde.'),
+                 ],
+               ),
+             );
+          }
+        );
+      }
+    );
+
+    try {
+      final pdfService = PdfService();
+      final pdf = pw.Document();
+      
+      // Cache questions
+      final allQuestions = await _firebaseService.getQuestions();
+
+      // Iterate
+      for (var employeeData in selectedList) {
+        // Yield to UI
+        await Future.delayed(Duration.zero);
+        
+        // Fetch full employee
+        final employee = await _firebaseService.getEmployeeById(employeeData.chapa);
+        if (employee == null) continue;
+
+        // Data Prep
+        final autoEval = employeeData.autoEvaluation != null 
+             ? await _firebaseService.getEvaluation('${_selectedYear}_${employeeData.chapa}_AUTO')
+             : null;
+        final gestorEval = employeeData.gestorEvaluation != null
+             ? await _firebaseService.getEvaluation('${_selectedYear}_${employeeData.chapa}_GESTOR')
+             : null;
+
+        // Process selected anexos
+        for (var anexo in _selectedAnexos) {
+          String roleType = 'OPERACIONAL';
+          if (['IV', 'V', 'VI'].contains(anexo)) roleType = 'GERENCIAL';
+          
+          // Filter Questions for this anexo/role
+          final filteredQuestions = allQuestions
+             .where((q) => q.tipo == roleType && q.ativo)
+             .map((q) {
+                final data = q.toFirestore();
+                data['id'] = q.id;
+                return data;
+             }).toList();
+
+          // Append Pages to PDF
+          switch (anexo) {
+            case 'I':
+              if (autoEval != null) {
+                  await pdfService.buildAnexoI(pdf, employee, autoEval, filteredQuestions, _selectedYear);
+              }
+              break;
+            case 'II':
+              if (gestorEval != null) {
+                  await pdfService.buildAnexoII(pdf, employee, gestorEval, filteredQuestions, _selectedYear);
+              }
+              break;
+            case 'III':
+              if (autoEval != null && gestorEval != null) {
+                  await pdfService.buildAnexoIII(pdf, employee, autoEval, gestorEval, filteredQuestions, _selectedYear);
+              }
+              break;
+            case 'IV':
+               if (autoEval != null) {
+                  await pdfService.buildAnexoIV(pdf, employee, autoEval, filteredQuestions, _selectedYear);
+               }
+              break;
+            case 'V':
+              if (gestorEval != null) {
+                  await pdfService.buildAnexoV(pdf, employee, gestorEval, filteredQuestions, _selectedYear);
+              }
+              break;
+            case 'VI':
+              if (autoEval != null && gestorEval != null) {
+                  await pdfService.buildAnexoVI(pdf, employee, autoEval, gestorEval, filteredQuestions, _selectedYear);
+              }
+              break;
+          }
+        }
+      }
+
+      // Close Progress
+      if (mounted) Navigator.of(context).pop();
+
+      // Print
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) => pdf.save(),
+        name: 'Relatorio_Massa_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
+
+    } catch (e) {
+      if (mounted) {
+         Navigator.of(context).pop(); // Close dialog
+         ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro na geração em massa: $e'), backgroundColor: Colors.red),
+         );
       }
     }
   }
@@ -332,6 +526,41 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
               ],
             ),
           ),
+          
+          // BULK SELECTION BAR (Anexos)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.grey.shade100,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Seleção para Impressão em Massa:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: ['I', 'II', 'III', 'IV', 'V', 'VI'].map((anexo) {
+                     final isSelected = _selectedAnexos.contains(anexo);
+                     // Check if disabled (mutually exclusive)
+                     final bool isOperacional = ['I', 'II', 'III'].contains(anexo);
+                     final bool hasGerencialSelected = _selectedAnexos.any((a) => ['IV', 'V', 'VI'].contains(a));
+                     final bool hasOperacionalSelected = _selectedAnexos.any((a) => ['I', 'II', 'III'].contains(a));
+                     
+                     bool disabled = false;
+                     if (isOperacional && hasGerencialSelected) disabled = true;
+                     if (!isOperacional && hasOperacionalSelected) disabled = true;
+
+                     return FilterChip(
+                       label: Text('Anexo $anexo'),
+                       selected: isSelected,
+                       onSelected: disabled ? null : (val) => _toggleAnexo(anexo, val),
+                       selectedColor: Colors.blue.shade100,
+                       checkmarkColor: Colors.blue,
+                     );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
           // Employee list
           Expanded(
             child: FutureBuilder<List<EmployeeWithEvaluations>>(
@@ -365,12 +594,55 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: employees.length,
-                  itemBuilder: (context, index) {
-                    return _buildEmployeeCard(employees[index]);
-                  },
+                return Column(
+                  children: [
+                    // SELECT ALL BAR
+                    Container(
+                      color: Colors.grey.shade200,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                           Text('${employees.length} funcionários encontrados'),
+                           const Spacer(),
+                           TextButton.icon(
+                             icon: Icon(_selectedEmployees.length == employees.length ? Icons.deselect : Icons.select_all),
+                             label: Text(_selectedEmployees.length == employees.length ? 'Desmarcar Todos' : 'Selecionar Pág.'),
+                             onPressed: () => _toggleAll(employees),
+                           ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: employees.length,
+                        itemBuilder: (context, index) {
+                          return _buildEmployeeCard(employees[index]);
+                        },
+                      ),
+                    ),
+                    // BULK ACTION BAR (Bottom)
+                    if (_selectedEmployees.isNotEmpty && _selectedAnexos.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        color: Colors.blue.shade50,
+                        child: Row(
+                          children: [
+                             Text('${_selectedEmployees.length} pessoas x ${_selectedAnexos.length} anexos', style: const TextStyle(fontWeight: FontWeight.bold)),
+                             const Spacer(),
+                             ElevatedButton.icon(
+                               icon: const Icon(Icons.print),
+                               label: const Text('IMPRIMIR EM MASSA'),
+                               style: ElevatedButton.styleFrom(
+                                 backgroundColor: Colors.blue,
+                                 foregroundColor: Colors.white,
+                               ),
+                               onPressed: () => _generateBulkPDF(employees), 
+                             ),
+                          ],
+                        ),
+                      ),
+                  ],
                 );
               },
             ),
@@ -387,12 +659,47 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
             ? Colors.orange
             : Colors.red;
 
+    final isSelected = _selectedEmployees.contains(employeeData.chapa);
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
+      color: isSelected ? Colors.blue.shade50 : null,
+      shape: isSelected ? RoundedRectangleBorder(side: BorderSide(color: Colors.blue, width: 2), borderRadius: BorderRadius.circular(4)) : null,
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+        padding: const EdgeInsets.all(8), // Reduced padding
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // SELECTION CHECKBOX
+            Checkbox(
+              value: isSelected,
+              onChanged: (val) => _toggleEmployee(employeeData.chapa, val),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   // Content Logic matches previous Column content...
+                   // But since I'm replacing the whole card structure to insert Row -> Checkbox...
+                   // I need to be careful to preserve the inner content.
+                   // The original code had Column(Row(Expanded(Column...
+                   // Let's reconstruct the inner part.
+                   Padding(
+                     padding: const EdgeInsets.only(left: 8, top: 8),
+                     child: _buildEmployeeCardContent(employeeData, statusColor),
+                   )
+                ]
+              )
+            )
+          ]
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmployeeCardContent(EmployeeWithEvaluations employeeData, Color statusColor) {
+     return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header: Name + Badge
@@ -515,9 +822,7 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
               ],
             ),
           ],
-        ),
-      ),
-    );
+      );
   }
 
   Widget _buildAnexoButton(String anexoType, EmployeeWithEvaluations employeeData, bool isAvailable) {

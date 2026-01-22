@@ -9,7 +9,11 @@ import '../models/evaluation.dart';
 class PdfService {
   Future<Uint8List> generateAnexoI(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final pdf = pw.Document();
+    await buildAnexoI(pdf, employee, evaluation, questions, cycle);
+    return pdf.save();
+  }
 
+  Future<void> buildAnexoI(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -36,17 +40,15 @@ class PdfService {
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlock(evaluation),
               pw.Expanded(
-                child: _buildEvaluationMatrix(evaluation, questions),
+                child: _buildEvaluationMatrix(evaluation, questions, 'OPERACIONAL'),
               ),
-              _buildFooter(evaluation, questions),
-              _buildSignatures(evaluation, signatureImage),
+              _buildFooter(evaluation, questions, 'OPERACIONAL'),
+              _buildSignatures(evaluation, signatureImage, label: 'Empregado'),
             ],
           );
         },
       ),
     );
-
-    return pdf.save();
   }
 
   pw.Widget _buildHeader(String periodoAvaliacao, Evaluation? evaluation) {
@@ -380,12 +382,12 @@ class PdfService {
     return evaluation.answers[questionId];
   }
 
-  pw.Widget _buildEvaluationMatrix(Evaluation? evaluation, List<Map<String, dynamic>> questions) {
-    // Filter only active questions AND type 'OPERACIONAL' for Anexo I
+  pw.Widget _buildEvaluationMatrix(Evaluation? evaluation, List<Map<String, dynamic>> questions, String requiredType) {
+    // Filter only active questions AND type
     final activeQuestions = questions.where((q) {
       final isActive = q['ativo'] as bool? ?? false; 
       final type = q['tipo'] as String? ?? ''; 
-      return isActive && type == 'OPERACIONAL';
+      return isActive && type == requiredType;
     }).toList();
     
     // Sort by ordem
@@ -525,14 +527,14 @@ class PdfService {
 
 
 
-  pw.Widget _buildFooter(Evaluation? evaluation, List<Map<String, dynamic>> questions) {
+  pw.Widget _buildFooter(Evaluation? evaluation, List<Map<String, dynamic>> questions, String requiredType) {
     // Calculate Total Score
     int totalScore = 0;
     if (evaluation != null) {
       final activeQuestions = questions.where((q) {
         final isActive = q['ativo'] as bool? ?? false;
         final type = q['tipo'] as String? ?? '';
-        return isActive && type == 'OPERACIONAL';
+        return isActive && type == requiredType;
       }).toList();
 
       activeQuestions.sort((a, b) => (a['ordem'] as int? ?? 0).compareTo(b['ordem'] as int? ?? 0));
@@ -600,7 +602,7 @@ class PdfService {
     );
   }
 
-  pw.Widget _buildSignatures(Evaluation? evaluation, pw.ImageProvider? signatureImage) {
+  pw.Widget _buildSignatures(Evaluation? evaluation, pw.ImageProvider? signatureImage, {String label = 'Empregado'}) {
       String dateStr = '____ de _______________ de 20__';
       
       if (evaluation != null) {
@@ -635,7 +637,7 @@ class PdfService {
                        decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide())),
                    ),
                    pw.SizedBox(height: 2),
-                   pw.Text('Empregado', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                   pw.Text(label, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
               ]
           ),
       );
@@ -644,7 +646,11 @@ class PdfService {
   /// Anexo II - Avaliação do Gestor (Operacional)
   Future<Uint8List> generateAnexoII(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final pdf = pw.Document();
+    await buildAnexoII(pdf, employee, evaluation, questions, cycle);
+    return pdf.save();
+  }
 
+  Future<void> buildAnexoII(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -670,17 +676,15 @@ class PdfService {
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlock(evaluation),
               pw.Expanded(
-                child: _buildEvaluationMatrix(evaluation, questions),
+                child: _buildEvaluationMatrix(evaluation, questions, 'OPERACIONAL'),
               ),
-              _buildFooter(evaluation, questions),
-              _buildSignatures(evaluation, signatureImage),
+              _buildFooter(evaluation, questions, 'OPERACIONAL'),
+              _buildSignatures(evaluation, signatureImage, label: 'Chefia Imediata'),
             ],
           );
         },
       ),
     );
-
-    return pdf.save();
   }
 
   /// Anexo III - Consolidado Operacional (Média AUTO + GESTOR)
@@ -692,7 +696,18 @@ class PdfService {
     int cycle,
   ) async {
     final pdf = pw.Document();
+    await buildAnexoIII(pdf, employee, autoEval, gestorEval, questions, cycle);
+    return pdf.save();
+  }
 
+  Future<void> buildAnexoIII(
+    pw.Document pdf,
+    Employee employee,
+    Evaluation? autoEval,
+    Evaluation? gestorEval,
+    List<Map<String, dynamic>> questions,
+    int cycle,
+  ) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -709,23 +724,25 @@ class PdfService {
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlockConsolidated(autoEval, gestorEval),
               pw.Expanded(
-                child: _buildConsolidatedMatrix(autoEval, gestorEval, questions),
+                child: _buildConsolidatedMatrix(autoEval, gestorEval, questions, 'OPERACIONAL'),
               ),
-              _buildConsolidatedFooter(autoEval, gestorEval, questions),
-              _buildConsolidatedSignatures(), // TODO: Assinatura do presidente da comissão
+              _buildConsolidatedFooter(autoEval, gestorEval, questions, 'OPERACIONAL'),
+              _buildConsolidatedSignatures(), 
             ],
           );
         },
       ),
     );
-
-    return pdf.save();
   }
 
   /// Anexo IV - Autoavaliação Gerencial
   Future<Uint8List> generateAnexoIV(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final pdf = pw.Document();
+    await buildAnexoIV(pdf, employee, evaluation, questions, cycle);
+    return pdf.save();
+  }
 
+  Future<void> buildAnexoIV(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -751,23 +768,25 @@ class PdfService {
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlock(evaluation),
               pw.Expanded(
-                child: _buildEvaluationMatrix(evaluation, questions),
+                child: _buildEvaluationMatrix(evaluation, questions, 'GERENCIAL'),
               ),
-              _buildFooter(evaluation, questions),
-              _buildSignatures(evaluation, signatureImage),
+              _buildFooter(evaluation, questions, 'GERENCIAL'),
+              _buildSignatures(evaluation, signatureImage, label: 'Empregado'),
             ],
           );
         },
       ),
     );
-
-    return pdf.save();
   }
 
   /// Anexo V - Avaliação do Gestor (Gerencial)
   Future<Uint8List> generateAnexoV(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final pdf = pw.Document();
+    await buildAnexoV(pdf, employee, evaluation, questions, cycle);
+    return pdf.save();
+  }
 
+  Future<void> buildAnexoV(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -793,17 +812,15 @@ class PdfService {
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlock(evaluation),
               pw.Expanded(
-                child: _buildEvaluationMatrix(evaluation, questions),
+                child: _buildEvaluationMatrix(evaluation, questions, 'GERENCIAL'),
               ),
-              _buildFooter(evaluation, questions),
-              _buildSignatures(evaluation, signatureImage),
+              _buildFooter(evaluation, questions, 'GERENCIAL'),
+              _buildSignatures(evaluation, signatureImage, label: 'Chefia Imediata'),
             ],
           );
         },
       ),
     );
-
-    return pdf.save();
   }
 
   /// Anexo VI - Consolidado Gerencial (Média AUTO_GERENCIAL + GESTOR_GERENCIAL)
@@ -815,7 +832,18 @@ class PdfService {
     int cycle,
   ) async {
     final pdf = pw.Document();
+    await buildAnexoVI(pdf, employee, autoEval, gestorEval, questions, cycle);
+    return pdf.save();
+  }
 
+  Future<void> buildAnexoVI(
+    pw.Document pdf,
+    Employee employee,
+    Evaluation? autoEval,
+    Evaluation? gestorEval,
+    List<Map<String, dynamic>> questions,
+    int cycle,
+  ) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -832,17 +860,15 @@ class PdfService {
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlockConsolidated(autoEval, gestorEval),
               pw.Expanded(
-                child: _buildConsolidatedMatrix(autoEval, gestorEval, questions),
+                child: _buildConsolidatedMatrix(autoEval, gestorEval, questions, 'GERENCIAL'),
               ),
-              _buildConsolidatedFooter(autoEval, gestorEval, questions),
-              _buildConsolidatedSignatures(), // TODO: Assinatura do presidente da comissão
+              _buildConsolidatedFooter(autoEval, gestorEval, questions, 'GERENCIAL'),
+              _buildConsolidatedSignatures(), 
             ],
           );
         },
       ),
     );
-
-    return pdf.save();
   }
 
   // ========== BUILD METHODS FOR NEW ANEXOS ==========
@@ -868,7 +894,7 @@ class PdfService {
             padding: const pw.EdgeInsets.all(5),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              'ANEXO II - a ser preenchido pelo GESTOR imediato do empregado que não exerce funções gerenciais',
+              'ANEXO II - a ser preenchido pelas chefias imediatas do empregado e complementado com provas materiais dos apontamentos de ordem subjetiva, devendo estas provas serem anexadas ao formulário.',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
               textAlign: pw.TextAlign.center,
             ),
@@ -893,7 +919,7 @@ class PdfService {
                       ),
                       pw.SizedBox(height: 8),
                       pw.Text(
-                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        'I.C.E.A. / F.C.A.O. Informação da Chefia do Empregado Avaliado / Fatores Comportamentais, Atitudinais e Operacionais.',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                       ),
                     ],
@@ -951,7 +977,7 @@ class PdfService {
             padding: const pw.EdgeInsets.all(5),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              'ANEXO III - RELATÓRIO FINAL (Operacional)',
+              'ANEXO III - a ser preenchido pela Comissão de Gestão de Carreiras a partir dos dados coletados dos Formulários dos itens I e II',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
               textAlign: pw.TextAlign.center,
             ),
@@ -976,7 +1002,7 @@ class PdfService {
                       ),
                       pw.SizedBox(height: 8),
                       pw.Text(
-                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        'A.F.E.A. / F.C.A.O. Avaliação Final do Empregado Avaliado/ Fatores Comportamentais, Atitudinais e Operacionais.',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                       ),
                     ],
@@ -1059,7 +1085,7 @@ class PdfService {
                       ),
                       pw.SizedBox(height: 8),
                       pw.Text(
-                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        'C.T.E.A./F.G. Condições de Trabalho do Empregado Avaliado/Fatores Gerenciais.',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                       ),
                     ],
@@ -1117,7 +1143,7 @@ class PdfService {
             padding: const pw.EdgeInsets.all(5),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              'ANEXO V - a ser preenchido pelo GESTOR imediato do empregado que exerce funções gerenciais',
+              'ANEXO V - a ser preenchido pelas chefias imediatas do empregado que assume funções gerenciais e complementado com provas materiais dos apontamentos de ordem subjetiva, devendo estas provas serem anexadas ao formulário.',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
               textAlign: pw.TextAlign.center,
             ),
@@ -1142,7 +1168,7 @@ class PdfService {
                       ),
                       pw.SizedBox(height: 8),
                       pw.Text(
-                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        'I.C.E.A./F.G. Informação da Chefia do Empregado Avaliado/Fatores Gerenciais.',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                       ),
                     ],
@@ -1200,7 +1226,7 @@ class PdfService {
             padding: const pw.EdgeInsets.all(5),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              'ANEXO VI - RELATÓRIO FINAL (Gerencial)',
+              'ANEXO VI - a ser preenchido pela Comissão de Gestão de Carreiras a partir dos dados coletados dos Formulários dos itens IV e V',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
               textAlign: pw.TextAlign.center,
             ),
@@ -1225,7 +1251,7 @@ class PdfService {
                       ),
                       pw.SizedBox(height: 8),
                       pw.Text(
-                        'C.T.E.A. (Condições de Trabalho do Empregado Avaliado)',
+                        'A.F.E.A./F.G. Avaliação Final do Empregado Avaliado/Fatores Gerenciais.',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                       ),
                     ],
@@ -1272,71 +1298,196 @@ class PdfService {
     Evaluation? autoEval,
     Evaluation? gestorEval,
     List<Map<String, dynamic>> questions,
+    String requiredType,
   ) {
-    final autoRespostas = autoEval?.answers ?? {};
-    final gestorRespostas = gestorEval?.answers ?? {};
+    // Filter and sort
+    final activeQuestions = questions.where((q) {
+      final isActive = q['ativo'] as bool? ?? false; 
+      final type = q['tipo'] as String? ?? ''; 
+      return isActive && type == requiredType;
+    }).toList();
+    
+    activeQuestions.sort((a, b) => (a['ordem'] as int? ?? 0).compareTo(b['ordem'] as int? ?? 0));
+    
+    // Grouping
+    final Map<String, Map<String, List<Map<String, dynamic>>>> grouped = {};
+    for (var q in activeQuestions) {
+      final secao = q['secao'] as String? ?? '';
+      final subsecao = q['subsecao'] as String? ?? '';
+      if (!grouped.containsKey(secao)) grouped[secao] = {};
+      if (!grouped[secao]!.containsKey(subsecao)) grouped[secao]![subsecao] = [];
+      grouped[secao]![subsecao]!.add(q);
+    }
 
-    return pw.Table(
-      border: pw.TableBorder.all(),
-      columnWidths: {
-        0: const pw.FlexColumnWidth(4), // Pergunta
-        1: const pw.FixedColumnWidth(50), // Auto
-        2: const pw.FixedColumnWidth(50), // Gestor
-        3: const pw.FixedColumnWidth(50), // Média
-      },
-      children: [
-        // Header
+    final rows = <pw.TableRow>[];
+    
+    // Header Row
+    rows.add(
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(bottom: pw.BorderSide())
+        ),
+        children: [
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(4),
+              child: pw.Text('', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
+            ),
+            _buildCenteredHeader('PONTOS\nEMPREGADO'),
+            _buildCenteredHeader('PONTOS\nCHEFIA\nDIRETA'),
+            _buildCenteredHeader('MÉDIA\nFINAL'),
+        ]
+      )
+    );
+
+    int questionCounter = 1;
+    final sortedSecoes = grouped.keys.toList()..sort();
+
+    for (var secao in sortedSecoes) {
+      // SECTION HEADER ROW
+      // User Requirement: Sentence Case (No toUpperCase).
+      // User Requirement: No line separating Section from Subsection.
+      // Solution: REMOVE bottom border.
+      rows.add(
         pw.TableRow(
-          decoration: pw.BoxDecoration(color: PdfColors.grey300),
+          // No decoration here to avoid the bottom line? 
+          // But we need the vertical borders if using Table?
+          // If we rely on TableBorder.all for the container, we just need internal lines.
+          // TableBorder(horizontalInside: none) means we define borders per row.
+          // So if we omit bottom border here, it should merge!
+          decoration: const pw.BoxDecoration(
+             // No bottom border
+          ),
           children: [
             pw.Padding(
               padding: const pw.EdgeInsets.all(4),
-              child: pw.Text('Pergunta', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)),
+              child: pw.Text(secao, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)), // Sentence Case
             ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(4),
-              child: pw.Text('Auto', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), textAlign: pw.TextAlign.center),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(4),
-              child: pw.Text('Gestor', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), textAlign: pw.TextAlign.center),
-            ),
-            pw.Padding(
-              padding: const pw.EdgeInsets.all(4),
-              child: pw.Text('Média', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8), textAlign: pw.TextAlign.center),
-            ),
-          ],
-        ),
-        // Data rows
-        ...questions.map((q) {
-          final id = q['id'] as String;
-          final pergunta = q['pergunta'] as String;
-          final autoScore = autoRespostas[id] ?? 0;
-          final gestorScore = gestorRespostas[id] ?? 0;
-          final media = (autoScore + gestorScore) / 2;
+            // We need to fill columns to maintain structure, borders handle vertical separation
+            pw.Container(), pw.Container(), pw.Container()
+          ]
+        )
+      );
 
-          return pw.TableRow(
-            children: [
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(4),
-                child: pw.Text(pergunta, style: const pw.TextStyle(fontSize: 7)),
-              ),
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(4),
-                child: pw.Text(autoScore.toString(), style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
-              ),
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(4),
-                child: pw.Text(gestorScore.toString(), style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
-              ),
-              pw.Padding(
-                padding: const pw.EdgeInsets.all(4),
-                child: pw.Text(media.toStringAsFixed(1), style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
-              ),
-            ],
-          );
-        }).toList(),
-      ],
+      final subsecoes = grouped[secao]!;
+      final sortedSubsecoes = subsecoes.keys.toList()..sort();
+
+      for (var subsecao in sortedSubsecoes) {
+          questionCounter = 1; 
+
+          // SUBSECTION HEADER ROW
+          // Usually needs a bottom border if it separates from questions.
+          // But questions also have borders.
+          // Let's add top border? No, Section has no bottom.
+          // Just let it flow.
+          if (subsecao.isNotEmpty) {
+            rows.add(
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(
+                   // No bottom border here either? Questions have it.
+                   // Actually, usually headers are distinct. 
+                   // If Section I sits on Subsection I.1, and there is no line, they look like one block.
+                   // Then Question I.1.1 comes. It usually has a top line or the Subsection has a bottom line.
+                   // User said "separando o caralho do titulo I do subtitulo I.1 q não tem".
+                   // So NO line between Sec and Sub.
+                   // And between Sub and Question? Usually yes.
+                ),
+                children: [
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Text(subsecao, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                  ),
+                  pw.Container(), pw.Container(), pw.Container()
+                ]
+              )
+            );
+          }
+
+          final perguntas = subsecoes[subsecao]!;
+          for (int i = 0; i < perguntas.length; i++) {
+             final pergunta = perguntas[i];
+             final rawText = pergunta['pergunta'] as String;
+             final id = pergunta['id'] as String;
+
+             String prefix = '';
+             if (subsecao.contains(' -')) prefix = subsecao.split(' -')[0].trim();
+             else if (secao.contains(' -')) prefix = secao.split(' -')[0].trim();
+
+             String numberedText = rawText;
+             if (prefix.isNotEmpty) {
+                numberedText = '$prefix.$questionCounter - $rawText';
+             } else {
+                numberedText = '$questionCounter - $rawText';
+             }
+             questionCounter++;
+
+             final autoScore = autoEval?.answers[id];
+             final gestorScore = gestorEval?.answers[id];
+             double? media;
+             if (autoScore != null || gestorScore != null) {
+                final a = (autoScore is int) ? autoScore : (autoScore as double? ?? 0);
+                final g = (gestorScore is int) ? gestorScore : (gestorScore as double? ?? 0);
+                media = (a + g) / 2.0;
+             }
+
+             // Questions: User wants NO separation from header.
+             // Previous logic added 'top' border. Removing it.
+             // Separation between questions is handled by the 'bottom' border of the previous question.
+             rows.add(
+               pw.TableRow(
+                 decoration: const pw.BoxDecoration(
+                    border: pw.Border(
+                      bottom: pw.BorderSide() // Only bottom border
+                    )
+                 ),
+                 verticalAlignment: pw.TableCellVerticalAlignment.middle,
+                 children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                      child: pw.Text(numberedText, style: const pw.TextStyle(fontSize: 8)),
+                    ),
+                    _buildCenteredCell(autoScore?.toString() ?? ''),
+                    _buildCenteredCell(gestorScore?.toString() ?? ''),
+                    _buildCenteredCell(media?.toStringAsFixed(1) ?? ''),
+                 ]
+               )
+             );
+          }
+      }
+    }
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(),
+      ),
+      child: pw.Table(
+        columnWidths: {
+          0: const pw.FlexColumnWidth(1),
+          1: const pw.FixedColumnWidth(40),
+          2: const pw.FixedColumnWidth(40),
+          3: const pw.FixedColumnWidth(40),
+        },
+        border: pw.TableBorder(
+           verticalInside: pw.BorderSide(),
+           horizontalInside: pw.BorderSide.none, // We handle row borders manually
+        ),
+        children: rows,
+      ),
+    );
+  }
+
+  pw.Widget _buildCenteredHeader(String text) {
+    return pw.Container(
+      alignment: pw.Alignment.center,
+      padding: const pw.EdgeInsets.all(2),
+      child: pw.Text(text, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7), textAlign: pw.TextAlign.center),
+    );
+  }
+
+  pw.Widget _buildCenteredCell(String text) {
+    return pw.Container(
+      alignment: pw.Alignment.center,
+      padding: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 9)),
     );
   }
 
@@ -1344,28 +1495,130 @@ class PdfService {
     Evaluation? autoEval,
     Evaluation? gestorEval,
     List<Map<String, dynamic>> questions,
+    String requiredType,
   ) {
-    final autoTotal = autoEval?.average ?? 0.0;
-    final gestorTotal = gestorEval?.average ?? 0.0;
-    final mediaFinal = (autoTotal + gestorTotal) / 2;
+    // Totals
+    double totalMedia = 0;
+    final autoRespostas = autoEval?.answers ?? {};
+    final gestorRespostas = gestorEval?.answers ?? {};
 
+    // Only count active OPERACIONAL questions? or provided list
+    // Assuming passed list is correct context
+    for (var q in questions) {
+       final id = q['id'] as String;
+       if (q['ativo'] == true && q['tipo'] == requiredType) {
+          final a = autoRespostas[id] ?? 0;
+          final g = gestorRespostas[id] ?? 0;
+          totalMedia += (a + g) / 2.0;
+       }
+    }
+
+    // Concept
+    String conceito = 'Insuficiente';
+    final points = totalMedia; 
+    if (points >= 90) conceito = 'Excelente';
+    else if (points >= 70) conceito = 'Bom';
+    else if (points >= 60) conceito = 'Regular';
+    else if (points >= 50) conceito = 'Recuperável';
+
+    // Obs
+    String obs = 'NADA CONSTA';
+    if (autoEval?.obs != null && autoEval!.obs!.trim().isNotEmpty) {
+      obs = autoEval.obs!;
+    } else if (gestorEval?.obs != null && gestorEval!.obs!.trim().isNotEmpty) {
+      obs = gestorEval.obs!;
+    }
+
+    // Layout: 
+    // Left: Flex (Obs)
+    // Right: Fixed 120 (40+40+40)
+    // Right Block: 
+    //   Row 1: Label (80px) | Value (40px) -> Total
+    //   Row 2: Label (80px) | Value (40px) -> Conceito
+    
     return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(left: pw.BorderSide(), right: pw.BorderSide(), bottom: pw.BorderSide())
       ),
-      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.end,
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(
-            'TOTAL: Auto: ${autoTotal.toStringAsFixed(2)} | Gestor: ${gestorTotal.toStringAsFixed(2)} | MÉDIA FINAL: ${mediaFinal.toStringAsFixed(2)}',
-            style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
-          ),
-        ],
-      ),
+           // OBS (Expanded)
+           pw.Expanded(
+             child: pw.Container(
+               padding: const pw.EdgeInsets.all(5),
+               decoration: const pw.BoxDecoration(
+                 border: pw.Border(right: pw.BorderSide())
+               ),
+               constraints: const pw.BoxConstraints(minHeight: 30), // Min height ensuring visibility
+               child: pw.Text('Obs.: $obs', style: const pw.TextStyle(fontSize: 8)),
+             )
+           ),
+           
+           // TOTALS BLOCK (Fixed 120)
+           pw.Container(
+             width: 120, // 40 * 3
+             child: pw.Column(
+               children: [
+                  // TOTAL ROW
+                  pw.Container(
+                    height: 15, // Fixed height to match table rows approx
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(bottom: pw.BorderSide())
+                    ),
+                    child: pw.Row(
+                      children: [
+                         // Label 'Total' (Spans 2 cols = 80px)
+                         pw.Container(
+                           width: 80,
+                           alignment: pw.Alignment.center,
+                           decoration: const pw.BoxDecoration(
+                             border: pw.Border(right: pw.BorderSide())
+                           ),
+                           child: pw.Text('Total', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))
+                         ),
+                         // Value (40px)
+                         pw.Container(
+                           width: 40,
+                           alignment: pw.Alignment.center,
+                           child: pw.Text(totalMedia.toStringAsFixed(1), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))
+                         )
+                      ]
+                    )
+                  ),
+                  
+                  // CONCEITO ROW
+                  pw.Container(
+                    height: 15,
+                    child: pw.Row(
+                      children: [
+                         // Label 'Conceito' (Spans 2 cols = 80px)
+                         pw.Container(
+                           width: 80, // Matches above
+                           alignment: pw.Alignment.center,
+                           decoration: const pw.BoxDecoration(
+                             border: pw.Border(right: pw.BorderSide())
+                           ),
+                           child: pw.Text('Conceito', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))
+                         ),
+                         // Value (40px)
+                         pw.Container(
+                           width: 40,
+                           alignment: pw.Alignment.center,
+                           child: pw.Text(conceito, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7)) // Smaller fitting
+                         )
+                      ]
+                    )
+                  ),
+               ]
+             )
+           )
+        ]
+      )
     );
   }
 
+  // Helper removed as it is replaced by _buildConsolidatedSignatures below is correct
   pw.Widget _buildConsolidatedSignatures() {
     // TODO: Implementar assinatura do presidente da comissão
     return pw.Container(
