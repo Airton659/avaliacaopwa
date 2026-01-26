@@ -13,6 +13,12 @@ class Evaluation {
   final String? signatureUrl;
   final Map<String, dynamic>? pdfData; // Stores persistent PDF headers (Tipo, Ocorrencia, etc.)
 
+  // Immutable Commission President Data (Snapshot on Conclusion)
+  final String? commissionPresidentName;
+  final String? commissionPresidentSignatureUrl; // Signature Image
+  final String? commissionPresidentPhotoUrl; // Face Photo (for QR)
+  final Map<String, dynamic>? commissionPresidentMetadata; // Location etc.
+
   Evaluation({
     required this.id,
     required this.year,
@@ -23,6 +29,10 @@ class Evaluation {
     DateTime? createdAt,
     this.signatureUrl,
     this.pdfData,
+    this.commissionPresidentName,
+    this.commissionPresidentSignatureUrl,
+    this.commissionPresidentPhotoUrl,
+    this.commissionPresidentMetadata,
   }) : createdAt = createdAt ?? DateTime.now();
 
   static String generateId(int year, String employeeId, EvaluationType type) {
@@ -46,6 +56,10 @@ class Evaluation {
       'createdAt': createdAt.toIso8601String(),
       'signatureUrl': signatureUrl,
       'pdfData': pdfData,
+      'commissionPresidentName': commissionPresidentName,
+      'commissionPresidentSignatureUrl': commissionPresidentSignatureUrl,
+      'commissionPresidentPhotoUrl': commissionPresidentPhotoUrl,
+      'commissionPresidentMetadata': commissionPresidentMetadata,
     };
   }
 
@@ -95,6 +109,10 @@ class Evaluation {
       createdAt: parsedCreatedAt,
       signatureUrl: data['signatureUrl'] as String?,
       pdfData: data['pdfData'] as Map<String, dynamic>?,
+      commissionPresidentName: data['commissionPresidentName'] as String?,
+      commissionPresidentSignatureUrl: data['commissionPresidentSignatureUrl'] as String?,
+      commissionPresidentPhotoUrl: data['commissionPresidentPhotoUrl'] as String?,
+      commissionPresidentMetadata: data['commissionPresidentMetadata'] as Map<String, dynamic>?,
     );
   }
 }

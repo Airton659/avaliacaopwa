@@ -5,6 +5,8 @@ import 'central_impressao_screen.dart';
 import 'config_menu_screen.dart';
 import 'gestao_equipes_screen.dart';
 import 'trocar_senha_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'signature_registration_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final String userMatricula;
@@ -122,64 +124,132 @@ class DashboardScreen extends StatelessWidget {
         builder: (context, constraints) {
           // Se for paisagem (landscape) - tablet horizontal
           if (isLandscape) {
-            return Padding(
+            return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _buildGiantCard(
-                      context,
-                      title: 'AUTOAVALIAÇÃO',
-                      icon: Icons.person,
-                      color: Colors.blue,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AutoavaliacaoScreen(
-                              userMatricula: userMatricula,
-                              isComissao: true,
+                  // PRESIDENTE: Card de Assinatura (Landscape)
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance.collection('comissao').doc(userMatricula).snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox.shrink();
+                      final data = snapshot.data!.data() as Map<String, dynamic>?;
+                      if (data == null || data['isPresident'] != true) return const SizedBox.shrink();
+
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 24),
+                        child: InkWell(
+                          onTap: () {
+                             Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SignatureRegistrationScreen(userId: userMatricula),
+                                ),
+                              );
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.amber.shade700, Colors.amber.shade900],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.amber.shade700.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.verified_user, color: Colors.white, size: 32),
+                                SizedBox(width: 16),
+                                Text(
+                                  'ÁREA DA PRESIDÊNCIA: REGISTRAR ASSINATURA OFICIAL',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 20,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                                SizedBox(width: 16),
+                                Icon(Icons.arrow_forward_ios, color: Colors.white70),
+                              ],
                             ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: _buildGiantCard(
-                      context,
-                      title: 'AVALIAÇÃO DO GESTOR',
-                      icon: Icons.supervisor_account,
-                      color: Colors.purple,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AvaliacaoGestorScreen(
-                              userMatricula: userMatricula,
-                              isComissao: true,
-                            ),
+                  SizedBox(
+                    height: 300,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildGiantCard(
+                            context,
+                            title: 'AUTOAVALIAÇÃO',
+                            icon: Icons.person,
+                            color: Colors.blue,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AutoavaliacaoScreen(
+                                    userMatricula: userMatricula,
+                                    isComissao: true,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: _buildGiantCard(
-                      context,
-                      title: 'CENTRAL DE IMPRESSÃO',
-                      icon: Icons.print,
-                      color: Colors.green,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CentralImpressaoScreen(),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: _buildGiantCard(
+                            context,
+                            title: 'AVALIAÇÃO DO GESTOR',
+                            icon: Icons.supervisor_account,
+                            color: Colors.purple,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AvaliacaoGestorScreen(
+                                    userMatricula: userMatricula,
+                                    isComissao: true,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: _buildGiantCard(
+                            context,
+                            title: 'CENTRAL DE IMPRESSÃO',
+                            icon: Icons.print,
+                            color: Colors.green,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CentralImpressaoScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -192,6 +262,82 @@ class DashboardScreen extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
+                // PRESIDENTE: Card de Assinatura
+                StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance.collection('comissao').doc(userMatricula).snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox.shrink();
+                    final data = snapshot.data!.data() as Map<String, dynamic>?;
+                    if (data == null || data['isPresident'] != true) return const SizedBox.shrink();
+
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 24),
+                      child: InkWell(
+                        onTap: () {
+                           Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SignatureRegistrationScreen(userId: userMatricula),
+                              ),
+                            );
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Colors.amber.shade700, Colors.amber.shade900],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.amber.shade700.withOpacity(0.4),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.verified_user, color: Colors.white, size: 32),
+                              const SizedBox(width: 16),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'ÁREA DA PRESIDÊNCIA',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'REGISTRAR ASSINATURA OFICIAL',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: isLandscape ? 20 : 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Spacer(),
+                              const Icon(Icons.arrow_forward_ios, color: Colors.white70),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
                 SizedBox(
                   height: 250,
                   child: _buildGiantCard(

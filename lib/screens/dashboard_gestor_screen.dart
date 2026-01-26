@@ -6,6 +6,7 @@ import 'assinatura_segura_screen.dart';
 import 'package:intl/intl.dart';
 import '../utils/password_helper.dart';
 import 'trocar_senha_screen.dart';
+import 'signature_registration_screen.dart';
 
 class DashboardGestorScreen extends StatefulWidget {
   final String userMatricula;
@@ -116,6 +117,41 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
 
               return Column(
                 children: [
+                  // PRESIDENTE: Botão de Registrar Assinatura
+                  StreamBuilder<DocumentSnapshot>(
+                    stream: _firestore.collection('comissao').doc(widget.userMatricula).snapshots(),
+                    builder: (context, comissaoSnapshot) {
+                      if (!comissaoSnapshot.hasData) return const SizedBox.shrink();
+                      final data = comissaoSnapshot.data!.data() as Map<String, dynamic>?;
+                      final isPresident = data?['isPresident'] == true;
+
+                      if (!isPresident) return const SizedBox.shrink();
+
+                      return Container(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                             Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SignatureRegistrationScreen(userId: widget.userMatricula),
+                                ),
+                              );
+                          },
+                          icon: const Icon(Icons.edit_document),
+                          label: const Text('REGISTRAR/ATUALIZAR ASSINATURA OFICIAL'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.all(16),
+                            elevation: 4,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  
                   Expanded(
                     child: ListView.builder(
                       itemCount: team.length,

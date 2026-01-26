@@ -135,6 +135,33 @@ class _AssinaturaSeguraScreenState extends State<AssinaturaSeguraScreen> {
       // 2. Capturar Metadados (Foto já temos em _photoBytes)
       final metadata = await _getMetadata();
 
+      // 3. Buscar Presidente da Comissão (Snapshot)
+      Map<String, dynamic>? presidentData;
+      try {
+        final presidentQuery = await FirebaseFirestore.instance
+            .collection('comissao')
+            .where('isPresident', isEqualTo: true)
+            .limit(1)
+            .get();
+        
+        if (presidentQuery.docs.isNotEmpty) {
+          final doc = presidentQuery.docs.first;
+          final data = doc.data();
+          final metadata = data['signatureMetadata'] as Map<String, dynamic>?;
+          
+          presidentData = {
+            'commissionPresidentName': data['nome'],
+            'commissionPresidentSignatureUrl': data['signatureUrl'],
+            'commissionPresidentPhotoUrl': metadata?['photoUrl'], // Face Photo
+            'commissionPresidentMetadata': metadata,
+          };
+        }
+      } catch (e) {
+        print('Erro ao buscar presidente: $e');
+        // Continue without snapshot if fails? Or block?
+        // Blocking might be safer for legal validity, but let's log for now.
+      }
+
       // 4. Batch Process
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final signatureRef = FirebaseStorage.instance
@@ -153,13 +180,21 @@ class _AssinaturaSeguraScreenState extends State<AssinaturaSeguraScreen> {
 
       for (final evalId in widget.evaluationIds) {
         final docRef = FirebaseFirestore.instance.collection('evaluations').doc(evalId);
-        batch.update(docRef, {
+        
+        final Map<String, dynamic> updateData = {
           'status': 'concluida',
           'signatureUrl': signatureUrl, // Assinatura Gestor
           'managerPhotoUrl': photoUrl,
           'managerSignatureMetadata': metadata,
           'managerSignedAt': FieldValue.serverTimestamp(),
-        });
+        };
+
+        // Add President Snapshot if available
+        if (presidentData != null) {
+          updateData.addAll(presidentData);
+        }
+
+        batch.update(docRef, updateData);
       }
 
       await batch.commit();

@@ -245,12 +245,14 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
                         final naComissao = comissaoMap.containsKey(chapa);
                         final isSuperAdmin = comissaoMap[chapa]?['isSuperAdmin'] == true;
                         final ativo = naComissao && comissaoMap[chapa]?['ativo'] == true;
+                        final isPresident = comissaoMap[chapa]?['isPresident'] == true;
 
                         return _buildFuncionarioCard(
                           chapa,
                           data,
                           naComissao,
                           isSuperAdmin,
+                          isPresident,
                           ativo,
                         );
                       },
@@ -270,155 +272,270 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
     Map<String, dynamic> data,
     bool naComissao,
     bool isSuperAdmin,
+    bool isPresident,
     bool ativo,
   ) {
     final nome = data['nome']?.toString() ?? '';
     final funcao = data['funcao']?.toString() ?? '';
     final situacao = SituacaoHelper.getDescricaoCompleta(data['situacao']?.toString());
 
+    // Cores e Ícones
+    Color cardColor = Colors.white;
+    Color iconColor = Colors.blue.shade700;
+    Color accentColor = Colors.blue.shade700; // Para textos/bordas
+    IconData iconData = Icons.person;
+
+    if (naComissao) {
+      if (!ativo && !isSuperAdmin) {
+        cardColor = Colors.grey.shade50;
+        iconColor = Colors.grey.shade500;
+        accentColor = Colors.grey.shade700;
+        iconData = Icons.person_off;
+      } else if (isSuperAdmin) {
+        cardColor = Colors.amber.shade50;
+        iconColor = Colors.amber.shade800;
+        accentColor = Colors.amber.shade900;
+        iconData = Icons.admin_panel_settings;
+      } else if (isPresident) {
+        cardColor = Colors.indigo.shade50; // COR DISTINTA
+        iconColor = Colors.indigo.shade700;
+        accentColor = Colors.indigo.shade900;
+        iconData = Icons.verified; // Star distinction
+      } else {
+        // Membro Comum
+        cardColor = Colors.green.shade50;
+        iconColor = Colors.green.shade700;
+        accentColor = Colors.green.shade900;
+        iconData = Icons.verified_user;
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: naComissao ? 4 : 2,
-      color: naComissao
-          ? (isSuperAdmin
-              ? Colors.amber.shade50
-              : ativo
-                  ? Colors.green.shade50
-                  : Colors.grey.shade50)
-          : Colors.white,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        leading: CircleAvatar(
-          radius: 28,
-          backgroundColor: naComissao
-              ? (isSuperAdmin
-                  ? Colors.amber.shade700
-                  : ativo
-                      ? Colors.green.shade700
-                      : Colors.grey.shade500)
-              : Colors.blue.shade700,
-          child: Icon(
-            isSuperAdmin
-                ? Icons.admin_panel_settings
-                : naComissao
-                    ? Icons.verified_user
-                    : Icons.person,
-            color: Colors.white,
-            size: 28,
-          ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      elevation: naComissao ? 3 : 1,
+      color: cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: naComissao ? BorderSide(color: accentColor.withOpacity(0.3), width: 1) : BorderSide.none,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
           children: [
-            Text(
-              nome,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Chapa: $chapa',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                funcao,
-                style: const TextStyle(fontSize: 14),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                situacao,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.deepPurple.shade700,
-                  fontWeight: FontWeight.w500,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: iconColor,
+                  child: Icon(iconData, color: Colors.white, size: 24),
                 ),
-              ),
-              if (isSuperAdmin)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.star,
-                        size: 16,
-                        color: Colors.amber.shade700,
-                      ),
-                      const SizedBox(width: 4),
                       Text(
-                        'SUPER ADMIN',
+                        nome,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade700,
+                          color: naComissao ? accentColor : Colors.black87,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-        trailing: naComissao
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!ativo && !isSuperAdmin)
+                      const SizedBox(height: 4),
+                      Text(
+                        '$funcao • Chapa: $chapa',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                       Row(
+                         children: [
+                           Expanded(
+                             child: Text(
+                              situacao,
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              overflow: TextOverflow.ellipsis,
+                                                     ),
+                           ),
+                         ],
+                       ),
+                      
+                      // Badges
+                      if (isSuperAdmin || isPresident || (!ativo && naComissao))
                         Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Chip(
-                            label: const Text(
-                              'DESATIVADO',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            backgroundColor: Colors.grey.shade600,
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              if (isSuperAdmin)
+                                _buildBadge('SUPER ADMIN', Colors.amber.shade800, Colors.amber.shade100),
+                              if (isPresident)
+                                _buildBadge('PRESIDENTE', Colors.indigo.shade700, Colors.indigo.shade100),
+                              if (!ativo && naComissao && !isSuperAdmin)
+                                _buildBadge('DESATIVADO', Colors.grey.shade700, Colors.grey.shade200),
+                            ],
                           ),
                         ),
-                      if (!isSuperAdmin)
-                        Switch(
-                          value: ativo,
-                          onChanged: (value) => _toggleAtivo(chapa, value),
-                          activeColor: Colors.green,
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        tooltip: 'Editar senha',
-                        onPressed: () => _editarSenha(chapa, nome),
-                      ),
-                      if (!isSuperAdmin)
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          tooltip: 'Remover da comissão',
-                          onPressed: () => _removerComissao(chapa, nome),
-                        ),
                     ],
-                  )
-                : ElevatedButton.icon(
-                    onPressed: () => _adicionarComissao(chapa, nome),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Adicionar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
                   ),
+                ),
+              ],
+            ),
+            
+            // Ações (Barra inferior)
+            // Ações (Barra inferior)
+            if (naComissao) ...[
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                   // Promote to President
+                   if (!isSuperAdmin && ativo && !isPresident)
+                      IconButton(
+                        icon: const Icon(Icons.star_border, color: Colors.indigo),
+                        tooltip: 'Promover a Presidente',
+                        onPressed: () => _definirPresidente(chapa, nome),
+                      ),
+                   
+                   // Edit Password
+                   IconButton(
+                      icon: const Icon(Icons.lock_outline, color: Colors.blue),
+                      tooltip: 'Alterar Senha',
+                      onPressed: () => _editarSenha(chapa, nome),
+                    ),
+
+                   // Toggle Active
+                   if (!isSuperAdmin)
+                     Switch(
+                       value: ativo,
+                       onChanged: (value) => _toggleAtivo(chapa, value),
+                       activeColor: Colors.green,
+                     ),
+
+                   // Delete
+                   if (!isSuperAdmin)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      tooltip: 'Remover',
+                      onPressed: () => _removerComissao(chapa, nome),
+                    ),
+                ],
+              )
+            ] else 
+              // Botão Adicionar (Fora da comissão)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _adicionarComissao(chapa, nome),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Adicionar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildBadge(String label, Color textColor, Color bgColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: textColor.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _definirPresidente(String chapa, String nome) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Definir Presidente'),
+        content: Text('Deseja promover $nome a Presidente da Comissão?\nIsso removerá o status de presidente de qualquer outro membro.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    try {
+      final batch = _firestore.batch();
+
+      // 1. Encontrar e remover presidente atual
+      final currentPresidentQuery = await _firestore
+          .collection('comissao')
+          .where('isPresident', isEqualTo: true)
+          .get();
+
+      for (var doc in currentPresidentQuery.docs) {
+        batch.update(doc.reference, {'isPresident': false});
+      }
+
+      // 2. Definir novo presidente
+      final newPresidentRef = _firestore.collection('comissao').doc(chapa);
+      batch.update(newPresidentRef, {
+        'isPresident': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$nome é agora o Presidente da Comissão'),
+            backgroundColor: Colors.amber,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao definir presidente: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _adicionarComissao(String chapa, String nome) async {

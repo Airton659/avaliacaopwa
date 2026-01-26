@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -8,6 +9,7 @@ import '../models/employee_with_evaluations.dart';
 import '../services/pdf_service.dart';
 import '../services/firebase_service.dart';
 import '../utils/situacao_helper.dart';
+import '../models/commission_president.dart';
 
 class CentralImpressaoScreen extends StatefulWidget {
   const CentralImpressaoScreen({super.key});
@@ -181,6 +183,53 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
     return result;
   }
 
+  Future<CommissionPresident?> _getCommissionPresident() async {
+    try {
+      final query = await _firestore
+          .collection('comissao')
+          .where('isPresident', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        final doc = query.docs.first;
+        final data = doc.data();
+        
+        String name = data['nome'] ?? 'Presidente da Comissão';
+        
+        // Fallback: If name is default or missing, try fetching from FUNCIONARIOS collection (Source of Truth)
+        if (name == 'Presidente da Comissão' || name.isEmpty) {
+           try {
+             // Try 'funcionarios' first (Correct collection for employees)
+             var userDoc = await _firestore.collection('funcionarios').doc(doc.id).get();
+             
+             // If not found, try 'users' (Legacy/Auth)
+             if (!userDoc.exists) {
+                userDoc = await _firestore.collection('users').doc(doc.id).get();
+             }
+
+             if (userDoc.exists && userDoc.data() != null) {
+                final userData = userDoc.data()!;
+                if (userData['nome'] != null) name = userData['nome'];
+                else if (userData['name'] != null) name = userData['name'];
+             }
+           } catch (_) {}
+        }
+
+        if (data['signatureUrl'] != null && data['signatureUrl'].isNotEmpty) {
+          return CommissionPresident(
+            name: name,
+            signatureUrl: data['signatureUrl'],
+            metadata: data['signatureMetadata'] ?? {},
+          );
+        }
+      }
+    } catch (e) {
+      print('Erro ao buscar presidente: $e');
+    }
+    return null;
+  }
+
   Future<void> _generatePDF(EmployeeWithEvaluations employeeData, String anexoType) async {
     try {
       // Show loading
@@ -218,26 +267,27 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
 
       // Generate PDF bytes
       final pdfService = PdfService();
+      final president = await _getCommissionPresident();
       late Uint8List pdfBytes;
 
       switch (anexoType) {
         case 'I':
-          pdfBytes = await pdfService.generateAnexoI(employee, autoEval, questionsMap, _selectedYear);
+          pdfBytes = await pdfService.generateAnexoI(employee, autoEval, questionsMap, _selectedYear, president: president);
           break;
         case 'II':
-          pdfBytes = await pdfService.generateAnexoII(employee, gestorEval, questionsMap, _selectedYear);
+          pdfBytes = await pdfService.generateAnexoII(employee, gestorEval, questionsMap, _selectedYear, president: president);
           break;
         case 'III':
-          pdfBytes = await pdfService.generateAnexoIII(employee, autoEval, gestorEval, questionsMap, _selectedYear);
+          pdfBytes = await pdfService.generateAnexoIII(employee, autoEval, gestorEval, questionsMap, _selectedYear, president: president);
           break;
         case 'IV':
-          pdfBytes = await pdfService.generateAnexoIV(employee, autoEval, questionsMap, _selectedYear);
+          pdfBytes = await pdfService.generateAnexoIV(employee, autoEval, questionsMap, _selectedYear, president: president);
           break;
         case 'V':
-          pdfBytes = await pdfService.generateAnexoV(employee, gestorEval, questionsMap, _selectedYear);
+          pdfBytes = await pdfService.generateAnexoV(employee, gestorEval, questionsMap, _selectedYear, president: president);
           break;
         case 'VI':
-          pdfBytes = await pdfService.generateAnexoVI(employee, autoEval, gestorEval, questionsMap, _selectedYear);
+          pdfBytes = await pdfService.generateAnexoVI(employee, autoEval, gestorEval, questionsMap, _selectedYear, president: president);
           break;
         default:
           throw Exception('Tipo de anexo inválido');
@@ -246,9 +296,45 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
       // Close loading
       if (mounted) Navigator.pop(context);
 
-      // Open print dialog
+      // Open print dialog with Fallback
+                     // Open print dialog
       if (mounted) {
-        await Printing.layoutPdf(onLayout: (_) => Future.value(pdfBytes));
+        try {
+           if (kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+               // iOS Web specific: Use sharePdf to trigger native Share Sheet (contains Print)
+               await Printing.sharePdf(bytes: pdfBytes, filename: 'Relatorio_${employeeData.chapa}_$anexoType.pdf');
+           } else {
+               await Printing.layoutPdf(
+                 onLayout: (_) => Future.value(pdfBytes),
+                 name: 'Relatorio_${employeeData.chapa}_$anexoType.pdf',
+               );
+           }
+        } catch (printError) {
+           print('Erro ao imprimir: $printError');
+           if (mounted) {
+             // Fallback to Share
+             showDialog(
+               context: context,
+               builder: (context) => AlertDialog(
+                 title: const Text('Erro na Impressão'),
+                 content: const Text('Ocorreu um erro ao abrir a caixa de impressão. Deseja tentar compartilhar o arquivo PDF?'),
+                 actions: [
+                   TextButton(
+                     onPressed: () => Navigator.pop(context),
+                     child: const Text('Cancelar'),
+                   ),
+                   ElevatedButton(
+                     onPressed: () {
+                       Navigator.pop(context);
+                       Printing.sharePdf(bytes: pdfBytes, filename: 'Relatorio_${employeeData.chapa}_$anexoType.pdf');
+                     },
+                     child: const Text('Compartilhar PDF'),
+                   ),
+                 ],
+               ),
+             );
+           }
+        }
       }
     } catch (e) {
       // Close loading if still showing
@@ -303,6 +389,7 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
 
     try {
       final pdfService = PdfService();
+      final president = await _getCommissionPresident();
       final pdf = pw.Document();
       
       // Cache questions
@@ -343,32 +430,32 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
           switch (anexo) {
             case 'I':
               if (autoEval != null) {
-                  await pdfService.buildAnexoI(pdf, employee, autoEval, filteredQuestions, _selectedYear);
+                  await pdfService.buildAnexoI(pdf, employee, autoEval, filteredQuestions, _selectedYear, president: president);
               }
               break;
             case 'II':
               if (gestorEval != null) {
-                  await pdfService.buildAnexoII(pdf, employee, gestorEval, filteredQuestions, _selectedYear);
+                  await pdfService.buildAnexoII(pdf, employee, gestorEval, filteredQuestions, _selectedYear, president: president);
               }
               break;
             case 'III':
               if (autoEval != null && gestorEval != null) {
-                  await pdfService.buildAnexoIII(pdf, employee, autoEval, gestorEval, filteredQuestions, _selectedYear);
+                  await pdfService.buildAnexoIII(pdf, employee, autoEval, gestorEval, filteredQuestions, _selectedYear, president: president);
               }
               break;
             case 'IV':
                if (autoEval != null) {
-                  await pdfService.buildAnexoIV(pdf, employee, autoEval, filteredQuestions, _selectedYear);
+                  await pdfService.buildAnexoIV(pdf, employee, autoEval, filteredQuestions, _selectedYear, president: president);
                }
               break;
             case 'V':
               if (gestorEval != null) {
-                  await pdfService.buildAnexoV(pdf, employee, gestorEval, filteredQuestions, _selectedYear);
+                  await pdfService.buildAnexoV(pdf, employee, gestorEval, filteredQuestions, _selectedYear, president: president);
               }
               break;
             case 'VI':
               if (autoEval != null && gestorEval != null) {
-                  await pdfService.buildAnexoVI(pdf, employee, autoEval, gestorEval, filteredQuestions, _selectedYear);
+                  await pdfService.buildAnexoVI(pdf, employee, autoEval, gestorEval, filteredQuestions, _selectedYear, president: president);
               }
               break;
           }
@@ -379,10 +466,42 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
       if (mounted) Navigator.of(context).pop();
 
       // Print
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) => pdf.save(),
-        name: 'Relatorio_Massa_${DateTime.now().millisecondsSinceEpoch}.pdf',
-      );
+      final bytes = await pdf.save();
+      final fileName = 'Relatorio_Massa_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+      try {
+        if (kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+            await Printing.sharePdf(bytes: bytes, filename: fileName);
+        } else {
+            await Printing.layoutPdf(
+              onLayout: (_) => Future.value(bytes),
+              name: fileName,
+            );
+        }
+      } catch (printError) {
+         if (mounted) {
+             showDialog(
+               context: context,
+               builder: (context) => AlertDialog(
+                 title: const Text('Erro na Impressão'),
+                 content: const Text('Erro ao conectar com a impressora. Deseja compartilhar o arquivo?'),
+                 actions: [
+                   TextButton(
+                     onPressed: () => Navigator.pop(context),
+                     child: const Text('Cancelar'),
+                   ),
+                   ElevatedButton(
+                     onPressed: () {
+                       Navigator.pop(context);
+                       Printing.sharePdf(bytes: bytes, filename: fileName);
+                     },
+                     child: const Text('Compartilhar'),
+                   ),
+                 ],
+               ),
+             );
+         }
+      }
 
     } catch (e) {
       if (mounted) {
@@ -709,13 +828,16 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                     Row(
                         children: [
-                          Text(
-                            employeeData.nome,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              employeeData.nome,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis, // Prevent overflow
                             ),
                           ),
                           const SizedBox(width: 8),

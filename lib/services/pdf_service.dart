@@ -3,17 +3,37 @@ import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/employee.dart';
 import '../models/evaluation.dart';
+import '../models/commission_president.dart';
+
 
 class PdfService {
-  Future<Uint8List> generateAnexoI(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+  // Simple in-memory cache for the session of this service instance
+  final Map<String, pw.ImageProvider> _imageCache = {};
+
+  Future<pw.ImageProvider> resolveImage(String url) async {
+    if (_imageCache.containsKey(url)) {
+      return _imageCache[url]!;
+    }
+    try {
+      final image = await networkImage(url);
+      _imageCache[url] = image;
+      return image;
+    } catch (e) {
+      print('Error loading image ($url): $e');
+      rethrow;
+    }
+  }
+
+  Future<Uint8List> generateAnexoI(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
     final pdf = pw.Document();
-    await buildAnexoI(pdf, employee, evaluation, questions, cycle);
+    await buildAnexoI(pdf, employee, evaluation, questions, cycle, president: president);
     return pdf.save();
   }
 
-  Future<void> buildAnexoI(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+  Future<void> buildAnexoI(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -21,10 +41,18 @@ class PdfService {
     pw.ImageProvider? signatureImage;
     if (evaluation?.signatureUrl != null && evaluation!.signatureUrl!.isNotEmpty) {
       try {
-        signatureImage = await networkImage(evaluation.signatureUrl!);
+        signatureImage = await resolveImage(evaluation.signatureUrl!);
       } catch (e) {
         // Fallback or ignore
-        print('Error loading signature image: $e');
+      }
+    }
+
+    pw.ImageProvider? presidentSignatureImage;
+    if (president?.signatureUrl != null && president!.signatureUrl.isNotEmpty) {
+      try {
+        presidentSignatureImage = await resolveImage(president.signatureUrl);
+      } catch (e) {
+        // Fallback or ignore
       }
     }
 
@@ -44,6 +72,7 @@ class PdfService {
               ),
               _buildFooter(evaluation, questions, 'OPERACIONAL'),
               _buildSignatures(evaluation, signatureImage, label: 'Empregado'),
+
             ],
           );
         },
@@ -491,7 +520,7 @@ class PdfService {
           padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
           child: pw.Text(text, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
         ),
-        pw.Container(), // Coluna vazia
+        pw.Container(), 
       ],
     );
   }
@@ -503,7 +532,7 @@ class PdfService {
           padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 2),
           child: pw.Text(text, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
         ),
-        pw.Container(), // Coluna vazia
+        pw.Container(),
       ],
     );
   }
@@ -644,13 +673,13 @@ class PdfService {
   }
 
   /// Anexo II - Avaliação do Gestor (Operacional)
-  Future<Uint8List> generateAnexoII(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+  Future<Uint8List> generateAnexoII(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
     final pdf = pw.Document();
-    await buildAnexoII(pdf, employee, evaluation, questions, cycle);
+    await buildAnexoII(pdf, employee, evaluation, questions, cycle, president: president);
     return pdf.save();
   }
 
-  Future<void> buildAnexoII(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+  Future<void> buildAnexoII(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -658,11 +687,22 @@ class PdfService {
     pw.ImageProvider? signatureImage;
     if (evaluation?.signatureUrl != null && evaluation!.signatureUrl!.isNotEmpty) {
       try {
-        signatureImage = await networkImage(evaluation.signatureUrl!);
+        signatureImage = await resolveImage(evaluation.signatureUrl!);
       } catch (e) {
         print('Error loading signature image: $e');
       }
     }
+
+    pw.ImageProvider? presidentSignatureImage;
+    if (president?.signatureUrl != null && president!.signatureUrl.isNotEmpty) {
+      try {
+        presidentSignatureImage = await resolveImage(president.signatureUrl);
+      } catch (e) {
+        print('Error loading president signature: $e');
+      }
+    }
+
+
 
     pdf.addPage(
       pw.Page(
@@ -680,6 +720,7 @@ class PdfService {
               ),
               _buildFooter(evaluation, questions, 'OPERACIONAL'),
               _buildSignatures(evaluation, signatureImage, label: 'Chefia Imediata'),
+
             ],
           );
         },
@@ -693,10 +734,11 @@ class PdfService {
     Evaluation? autoEval,
     Evaluation? gestorEval,
     List<Map<String, dynamic>> questions,
-    int cycle,
-  ) async {
+    int cycle, {
+    CommissionPresident? president,
+  }) async {
     final pdf = pw.Document();
-    await buildAnexoIII(pdf, employee, autoEval, gestorEval, questions, cycle);
+    await buildAnexoIII(pdf, employee, autoEval, gestorEval, questions, cycle, president: president);
     return pdf.save();
   }
 
@@ -706,16 +748,26 @@ class PdfService {
     Evaluation? autoEval,
     Evaluation? gestorEval,
     List<Map<String, dynamic>> questions,
-    int cycle,
-  ) async {
+    int cycle, {
+    CommissionPresident? president,
+  }) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
 
+    pw.ImageProvider? presidentSignatureImage;
+    if (president?.signatureUrl != null && president!.signatureUrl.isNotEmpty) {
+      try {
+        presidentSignatureImage = await resolveImage(president.signatureUrl);
+      } catch (e) {
+        print('Error loading president signature: $e');
+      }
+    }
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 10), // Reduced margin
         build: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -724,25 +776,27 @@ class PdfService {
               _buildIdentificationBlock(employee),
               _buildFunctionalSituationBlockConsolidated(autoEval, gestorEval),
               pw.Expanded(
-                child: _buildConsolidatedMatrix(autoEval, gestorEval, questions, 'OPERACIONAL'),
+                 child: _buildConsolidatedMatrix(autoEval, gestorEval, questions, 'OPERACIONAL'),
               ),
               _buildConsolidatedFooter(autoEval, gestorEval, questions, 'OPERACIONAL'),
-              _buildConsolidatedSignatures(), 
+              pw.SizedBox(height: 10),
+              _buildCommissionSignature(president, presidentSignatureImage, evaluation: gestorEval),
             ],
           );
         },
       ),
     );
+
   }
 
   /// Anexo IV - Autoavaliação Gerencial
-  Future<Uint8List> generateAnexoIV(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+  Future<Uint8List> generateAnexoIV(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
     final pdf = pw.Document();
-    await buildAnexoIV(pdf, employee, evaluation, questions, cycle);
+    await buildAnexoIV(pdf, employee, evaluation, questions, cycle, president: president);
     return pdf.save();
   }
 
-  Future<void> buildAnexoIV(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+  Future<void> buildAnexoIV(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -750,9 +804,18 @@ class PdfService {
     pw.ImageProvider? signatureImage;
     if (evaluation?.signatureUrl != null && evaluation!.signatureUrl!.isNotEmpty) {
       try {
-        signatureImage = await networkImage(evaluation.signatureUrl!);
+        signatureImage = await resolveImage(evaluation.signatureUrl!);
       } catch (e) {
         print('Error loading signature image: $e');
+      }
+    }
+
+    pw.ImageProvider? presidentSignatureImage;
+    if (president?.signatureUrl != null && president!.signatureUrl.isNotEmpty) {
+      try {
+        presidentSignatureImage = await resolveImage(president.signatureUrl);
+      } catch (e) {
+        print('Error loading president signature: $e');
       }
     }
 
@@ -772,6 +835,7 @@ class PdfService {
               ),
               _buildFooter(evaluation, questions, 'GERENCIAL'),
               _buildSignatures(evaluation, signatureImage, label: 'Empregado'),
+
             ],
           );
         },
@@ -780,13 +844,13 @@ class PdfService {
   }
 
   /// Anexo V - Avaliação do Gestor (Gerencial)
-  Future<Uint8List> generateAnexoV(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+  Future<Uint8List> generateAnexoV(Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
     final pdf = pw.Document();
-    await buildAnexoV(pdf, employee, evaluation, questions, cycle);
+    await buildAnexoV(pdf, employee, evaluation, questions, cycle, president: president);
     return pdf.save();
   }
 
-  Future<void> buildAnexoV(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle) async {
+  Future<void> buildAnexoV(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
@@ -797,6 +861,15 @@ class PdfService {
         signatureImage = await networkImage(evaluation.signatureUrl!);
       } catch (e) {
         print('Error loading signature image: $e');
+      }
+    }
+
+    pw.ImageProvider? presidentSignatureImage;
+    if (president?.signatureUrl != null && president!.signatureUrl.isNotEmpty) {
+      try {
+        presidentSignatureImage = await networkImage(president.signatureUrl);
+      } catch (e) {
+        print('Error loading president signature: $e');
       }
     }
 
@@ -816,6 +889,7 @@ class PdfService {
               ),
               _buildFooter(evaluation, questions, 'GERENCIAL'),
               _buildSignatures(evaluation, signatureImage, label: 'Chefia Imediata'),
+
             ],
           );
         },
@@ -829,10 +903,11 @@ class PdfService {
     Evaluation? autoEval,
     Evaluation? gestorEval,
     List<Map<String, dynamic>> questions,
-    int cycle,
-  ) async {
+    int cycle, {
+    CommissionPresident? president,
+  }) async {
     final pdf = pw.Document();
-    await buildAnexoVI(pdf, employee, autoEval, gestorEval, questions, cycle);
+    await buildAnexoVI(pdf, employee, autoEval, gestorEval, questions, cycle, president: president);
     return pdf.save();
   }
 
@@ -842,16 +917,26 @@ class PdfService {
     Evaluation? autoEval,
     Evaluation? gestorEval,
     List<Map<String, dynamic>> questions,
-    int cycle,
-  ) async {
+    int cycle, {
+    CommissionPresident? president,
+  }) async {
     final startYear = cycle - 1;
     final endYear = cycle;
     final periodoAvaliacao = '01/10/$startYear a 30/09/$endYear';
 
+    pw.ImageProvider? presidentSignatureImage;
+    if (president?.signatureUrl != null && president!.signatureUrl.isNotEmpty) {
+      try {
+        presidentSignatureImage = await networkImage(president.signatureUrl);
+      } catch (e) {
+        print('Error loading president signature: $e');
+      }
+    }
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        margin: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 10), // Reduced margin
         build: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -863,12 +948,14 @@ class PdfService {
                 child: _buildConsolidatedMatrix(autoEval, gestorEval, questions, 'GERENCIAL'),
               ),
               _buildConsolidatedFooter(autoEval, gestorEval, questions, 'GERENCIAL'),
-              _buildConsolidatedSignatures(), 
+              pw.SizedBox(height: 10),
+              _buildCommissionSignature(president, presidentSignatureImage),
             ],
           );
         },
       ),
     );
+
   }
 
   // ========== BUILD METHODS FOR NEW ANEXOS ==========
@@ -1359,8 +1446,8 @@ class PdfService {
           ),
           children: [
             pw.Padding(
-              padding: const pw.EdgeInsets.all(4),
-              child: pw.Text(secao, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)), // Sentence Case
+              padding: const pw.EdgeInsets.all(3), // Reduced padding
+              child: pw.Text(secao, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)), // Reduced font 9->8
             ),
             // We need to fill columns to maintain structure, borders handle vertical separation
             pw.Container(), pw.Container(), pw.Container()
@@ -1393,8 +1480,8 @@ class PdfService {
                 ),
                 children: [
                   pw.Padding(
-                    padding: const pw.EdgeInsets.all(4),
-                    child: pw.Text(subsecao, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                    padding: const pw.EdgeInsets.all(3), // Reduced padding
+                    child: pw.Text(subsecao, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8)), // Reduced font 9->8
                   ),
                   pw.Container(), pw.Container(), pw.Container()
                 ]
@@ -1442,8 +1529,8 @@ class PdfService {
                  verticalAlignment: pw.TableCellVerticalAlignment.middle,
                  children: [
                     pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                      child: pw.Text(numberedText, style: const pw.TextStyle(fontSize: 8)),
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 1), // Compact
+                      child: pw.Text(numberedText, style: const pw.TextStyle(fontSize: 7)), // Smaller font
                     ),
                     _buildCenteredCell(autoScore?.toString() ?? ''),
                     _buildCenteredCell(gestorScore?.toString() ?? ''),
@@ -1486,8 +1573,8 @@ class PdfService {
   pw.Widget _buildCenteredCell(String text) {
     return pw.Container(
       alignment: pw.Alignment.center,
-      padding: const pw.EdgeInsets.symmetric(vertical: 4),
-      child: pw.Text(text, style: const pw.TextStyle(fontSize: 9)),
+      padding: const pw.EdgeInsets.symmetric(vertical: 2), // Compact
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 7)), // Smaller
     );
   }
 
@@ -1619,34 +1706,7 @@ class PdfService {
   }
 
   // Helper removed as it is replaced by _buildConsolidatedSignatures below is correct
-  pw.Widget _buildConsolidatedSignatures() {
-    // TODO: Implementar assinatura do presidente da comissão
-    return pw.Container(
-      margin: const pw.EdgeInsets.only(top: 10),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'ASSINATURA DO PRESIDENTE DA COMISSÃO',
-            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold),
-          ),
-          pw.SizedBox(height: 20),
-          pw.Container(
-            height: 60,
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.grey400),
-            ),
-            child: pw.Center(
-              child: pw.Text(
-                '[Assinatura do Presidente]',
-                style: pw.TextStyle(fontSize: 8, color: PdfColors.grey),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   String _getMonthName(int month) {
     const months = [
@@ -1656,4 +1716,137 @@ class PdfService {
     if (month < 1 || month > 12) return '';
     return months[month - 1];
   }
+
+  pw.Widget _buildCommissionSignature(CommissionPresident? president, pw.ImageProvider? signatureImage, {Evaluation? evaluation}) {
+    // 1. Tentar usar dados imutáveis da avaliação (Snapshot)
+    String? name;
+    String? signatureUrl;
+    String? photoUrl; // Para QR Code
+    Map<String, dynamic>? metadata;
+    
+    if (evaluation?.commissionPresidentName != null) {
+        name = evaluation!.commissionPresidentName;
+        signatureUrl = evaluation.commissionPresidentSignatureUrl;
+        photoUrl = evaluation.commissionPresidentPhotoUrl;
+        metadata = evaluation.commissionPresidentMetadata;
+
+        // Fallback: If snapshot name is generic and we have a better name in president object, use it.
+        if ((name == 'Presidente da Comissão' || name == 'PRESIDENTE DA COMISSÃO') && 
+            president != null && 
+            president.name != 'Presidente da Comissão') {
+            name = president.name;
+        }
+    } else if (president != null) {
+        // Fallback para presidente atual (Legacy/Preview)
+        name = president.name;
+        signatureUrl = president.signatureUrl;
+        photoUrl = president.metadata['photoUrl']; // Foto pode estar no metadata
+        metadata = president.metadata;
+    }
+
+    if (name == null || signatureUrl == null) return pw.SizedBox.shrink();
+
+    final dynamic timestamp = metadata?['registeredAt'];
+    String dateStr = 'Data indisponível';
+    
+    if (timestamp != null) {
+      try {
+        DateTime date;
+        if (timestamp is Timestamp) {
+            date = timestamp.toDate();
+        } else if (timestamp is String) {
+            date = DateTime.tryParse(timestamp) ?? DateTime.now();
+        } else {
+            date = (timestamp as dynamic).toDate();
+        }
+        
+        final day = date.day.toString().padLeft(2, '0');
+        final month = date.month.toString().padLeft(2, '0');
+        final year = date.year;
+        final hour = date.hour.toString().padLeft(2, '0');
+        final minute = date.minute.toString().padLeft(2, '0');
+        dateStr = '$day/$month/$year às $hour:$minute';
+      } catch (_) {}
+    }
+
+    // Location
+    String locationStr = '';
+    if (metadata != null && metadata.containsKey('latitude')) {
+        locationStr = 'Lat: ${metadata['latitude']}, Long: ${metadata['longitude']}';
+    }
+
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 20),
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+        color: PdfColors.grey100,
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text('VALIDAÇÃO DA COMISSÃO', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+          pw.Divider(color: PdfColors.grey400),
+          pw.Row(
+            children: [
+              // QR Code (Foto)
+              pw.Container(
+                width: 50,
+                height: 50,
+                child: photoUrl != null 
+                  ? pw.UrlLink(
+                      destination: photoUrl,
+                      child: pw.BarcodeWidget(
+                        data: photoUrl,
+                        barcode: pw.Barcode.qrCode(),
+                        drawText: false,
+                      ),
+                    )
+                  : pw.Center(child: pw.Text('No QC', style: pw.TextStyle(fontSize: 6))),
+              ),
+              pw.SizedBox(width: 15),
+              
+              // Text Details
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('Assinado digitalmente por:', style: pw.TextStyle(fontSize: 8)),
+                    pw.Text(name!.toUpperCase(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 4),
+                    pw.Text('Cargo: Presidente da Comissão de Avaliação', style: pw.TextStyle(fontSize: 8)),
+                    pw.Text('Data do Registro: $dateStr', style: pw.TextStyle(fontSize: 8)),
+                    if (metadata?['device'] != null)
+                      pw.Text('Dispositivo: ${metadata!['device']}', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                    if (locationStr.isNotEmpty)
+                      pw.Text('Localização: $locationStr', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                    if (metadata?['ip'] != null)
+                      pw.Text('IP Origem: ${metadata!['ip']}', style: pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                  ],
+                ),
+              ),
+              
+              // Signature Image
+              if (signatureImage != null)
+                pw.Container(
+                  width: 80,
+                  height: 40,
+                  child: pw.Image(
+                    signatureImage,
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+            ]
+          ),
+          pw.SizedBox(height: 5),
+          pw.Text(
+            'Documento assinado eletronicamente com validade jurídica garantida por evidências de autoria e integridade.',
+            style: pw.TextStyle(fontSize: 6, fontStyle: pw.FontStyle.italic),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
