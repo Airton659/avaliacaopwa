@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/situacao_helper.dart';
+import '../widgets/multi_situacao_filter.dart';
 import '../utils/password_helper.dart';
 
 class GerenciarComissaoScreen extends StatefulWidget {
@@ -15,7 +16,7 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String? _filtroSituacao;
+  Set<String> _filtrosSituacao = {};
 
   @override
   void dispose() {
@@ -119,33 +120,12 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
               return Container(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 color: Colors.deepPurple.shade50,
-                child: DropdownButtonFormField<String>(
-                  value: _filtroSituacao,
-                  decoration: const InputDecoration(
-                    labelText: 'Filtrar por Situação',
-                    labelStyle: TextStyle(fontSize: 16),
-                    prefixIcon: Icon(Icons.filter_list),
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  style: const TextStyle(fontSize: 16, color: Colors.black),
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: null,
-                      child: Text('Todas'),
-                    ),
-                    ...situacoesDisponiveis.map((situacao) {
-                      final descricao = SituacaoHelper.situacoes[situacao] ?? situacao;
-                      return DropdownMenuItem<String>(
-                        value: situacao,
-                        child: Text('$situacao - $descricao'),
-                      );
-                    }).toList()..sort((a, b) => a.value!.compareTo(b.value!)),
-                  ],
-                  onChanged: (value) {
+                child: MultiSituacaoFilter(
+                  selectedSituacoes: _filtrosSituacao,
+                  availableSituacoes: situacoesDisponiveis,
+                  onChanged: (newSelection) {
                     setState(() {
-                      _filtroSituacao = value;
+                      _filtrosSituacao = newSelection;
                     });
                   },
                 ),
@@ -215,12 +195,12 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
                       }).toList();
                     }
 
-                    // Filtro por situação
-                    if (_filtroSituacao != null) {
+                    // Filtro por situação (multi-seleção)
+                    if (_filtrosSituacao.isNotEmpty) {
                       funcionarios = funcionarios.where((doc) {
                         final data = doc.data() as Map<String, dynamic>;
                         final situacao = data['situacao']?.toString() ?? '';
-                        return situacao.toUpperCase() == _filtroSituacao;
+                        return _filtrosSituacao.contains(situacao.toUpperCase());
                       }).toList();
                     }
 
@@ -807,21 +787,106 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ciclo atualizado para $novoCiclo'),
+           SnackBar(
+            content: Text('Ano de realização atualizado para $novoCiclo'),
             backgroundColor: Colors.green,
           ),
         );
+
+        // CHECK FOR AUTOMATIC TRIENNIUM RENEWAL
+        await _verificarRenovacaoAutomatica(int.tryParse(cicloAtual) ?? 0, int.tryParse(novoCiclo) ?? 0);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao atualizar ciclo: $e'),
+            content: Text('Erro ao salvar configuração: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
+  }
+
+  Future<void> _verificarRenovacaoAutomatica(int oldYear, int newYear) async {
+      // Logic: If moving from Year X to X+1, check who finished cycle in Year X
+      // Finished Cycle condition: (oldYear - startYear) == 2 (aka 3rd year)
+      // OR specifically: (oldYear - startYear) >= 2
+      
+      if (newYear <= oldYear) return; // Only forward changes trigger logic? Or any change? Let's assume forward.
+      
+      // Query candidates
+      final snapshot = await _firestore.collection('funcionarios')
+          .get();
+      
+      final candidates = <String>[];
+      
+      for (var doc in snapshot.docs) {
+          final data = doc.data();
+          final start = data['currentTrienniumStart'] as int?;
+          if (start == null) continue;
+
+          // If in the old year, they were at Year 3 (End), then in new year they need renewal.
+          // Example: Old=2026, Start=2024. Delta = 2. It was their final year.
+          // New=2027. We want to update Start to 2027.
+          if ((oldYear - start) >= 2) {
+             candidates.add(doc.id);
+          }
+      }
+
+      if (candidates.isEmpty) return;
+
+      if (!mounted) return;
+
+      // Prompt User
+      final confirm = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+           title: const Text('Renovação Automática de Triênios'),
+           content: Text(
+             'Detectamos que ${candidates.length} funcionários encerraram o ciclo trienal em $oldYear.\n\n'
+             'Deseja atualizar automaticamente o Início do Triênio deles para $newYear?\n\n'
+             'Isso definirá $newYear como o "Ano 1" para esses funcionários.',
+           ),
+           actions: [
+             TextButton(
+               onPressed: () => Navigator.pop(context, false),
+               child: const Text('Não, farei manualmente'),
+             ),
+             ElevatedButton(
+               onPressed: () => Navigator.pop(context, true),
+               child: const Text('Sim, renovar agora'),
+             ),
+           ],
+        ),
+      );
+
+      if (confirm == true) {
+         await _executarRenovacaoEmMassa(candidates, newYear);
+      }
+  }
+
+  Future<void> _executarRenovacaoEmMassa(List<String> ids, int newStartYear) async {
+     try {
+       final batch = _firestore.batch();
+       for (var id in ids) {
+         final ref = _firestore.collection('funcionarios').doc(id);
+         batch.update(ref, {'currentTrienniumStart': newStartYear});
+       }
+       await batch.commit();
+
+       if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${ids.length} triênios renovados com sucesso!'), backgroundColor: Colors.teal),
+         );
+       }
+     } catch (e) {
+        if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro na renovação em massa: $e'), backgroundColor: Colors.red),
+         );
+       }
+     }
   }
 }

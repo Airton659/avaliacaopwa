@@ -558,8 +558,15 @@ class PdfService {
 
   pw.Widget _buildFooter(Evaluation? evaluation, List<Map<String, dynamic>> questions, String requiredType) {
     // Calculate Total Score
-    int totalScore = 0;
-    if (evaluation != null) {
+    double totalScore = 0;
+    String displayTotal = '';
+
+    if (evaluation?.specialStatus != null) {
+       displayTotal = evaluation!.specialStatus!;
+    } else if (evaluation?.manualScore != null) {
+       totalScore = evaluation!.manualScore!;
+       displayTotal = totalScore.toStringAsFixed(1);
+    } else if (evaluation != null) {
       final activeQuestions = questions.where((q) {
         final isActive = q['ativo'] as bool? ?? false;
         final type = q['tipo'] as String? ?? '';
@@ -579,6 +586,7 @@ class PdfService {
         }
         index++;
       }
+      displayTotal = totalScore.toInt().toString();
     }
 
     final obsText = (evaluation?.obs != null && evaluation!.obs!.trim().isNotEmpty)
@@ -620,7 +628,7 @@ class PdfService {
                          children: [
                             pw.Text('Total', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
                             if (evaluation != null)
-                              pw.Text('$totalScore', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                              pw.Expanded(child: pw.Text(displayTotal, textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
                          ]
                       )
                    )

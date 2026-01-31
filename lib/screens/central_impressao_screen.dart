@@ -9,6 +9,7 @@ import '../models/employee_with_evaluations.dart';
 import '../services/pdf_service.dart';
 import '../services/firebase_service.dart';
 import '../utils/situacao_helper.dart';
+import '../widgets/multi_situacao_filter.dart';
 import '../models/commission_president.dart';
 
 class CentralImpressaoScreen extends StatefulWidget {
@@ -24,7 +25,7 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
   final TextEditingController _searchController = TextEditingController();
   
   String _searchQuery = '';
-  String? _filtroSituacao;
+  Set<String> _filtrosSituacao = {};
   int _selectedYear = DateTime.now().year;
   bool _keepSelection = false;
   
@@ -122,10 +123,10 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
         }
       }
 
-      // Apply situacao filter
-      if (_filtroSituacao != null) {
+      // Apply situacao filter (multi-selection)
+      if (_filtrosSituacao.isNotEmpty) {
         final situacao = data['situacao']?.toString() ?? '';
-        if (situacao.toUpperCase() != _filtroSituacao) {
+        if (!_filtrosSituacao.contains(situacao.toUpperCase())) {
           continue;
         }
       }
@@ -596,29 +597,12 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
                         future: _getAvailableSituacoes(),
                         builder: (context, snapshot) {
                           final situacoes = snapshot.data ?? [];
-                          return DropdownButtonFormField<String>(
-                            value: _filtroSituacao,
-                            decoration: const InputDecoration(
-                              labelText: 'Filtrar por Situação',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            items: [
-                              const DropdownMenuItem<String>(
-                                value: null,
-                                child: Text('Todas'),
-                              ),
-                              ...situacoes.map((sit) {
-                                final descricao = SituacaoHelper.situacoes[sit] ?? sit;
-                                return DropdownMenuItem<String>(
-                                  value: sit,
-                                  child: Text('$sit - $descricao'),
-                                );
-                              }).toList(),
-                            ],
-                            onChanged: (value) {
+                          return MultiSituacaoFilter(
+                            selectedSituacoes: _filtrosSituacao,
+                            availableSituacoes: situacoes.toSet(),
+                            onChanged: (newSelection) {
                               setState(() {
-                                _filtroSituacao = value;
+                                _filtrosSituacao = newSelection;
                               });
                             },
                           );

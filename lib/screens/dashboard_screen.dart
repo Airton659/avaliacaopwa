@@ -7,6 +7,7 @@ import 'gestao_equipes_screen.dart';
 import 'trocar_senha_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'signature_registration_screen.dart';
+import 'central_ciclos_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final String userMatricula;
@@ -136,56 +137,120 @@ class DashboardScreen extends StatelessWidget {
                       final data = snapshot.data!.data() as Map<String, dynamic>?;
                       if (data == null || data['isPresident'] != true) return const SizedBox.shrink();
 
-                      return Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 24),
-                        child: InkWell(
-                          onTap: () {
-                             Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SignatureRegistrationScreen(userId: userMatricula),
-                                ),
-                              );
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.amber.shade700, Colors.amber.shade900],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
+                      return Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            child: InkWell(
+                              onTap: () {
+                                 Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => SignatureRegistrationScreen(userId: userMatricula),
+                                    ),
+                                  );
+                              },
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.amber.shade700.withOpacity(0.4),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.verified_user, color: Colors.white, size: 32),
-                                SizedBox(width: 16),
-                                Text(
-                                  'ÁREA DA PRESIDÊNCIA: REGISTRAR ASSINATURA OFICIAL',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 20,
-                                    letterSpacing: 1.1,
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.amber.shade700, Colors.amber.shade900],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.amber.shade700.withOpacity(0.4),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(width: 16),
-                                Icon(Icons.arrow_forward_ios, color: Colors.white70),
-                              ],
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.verified_user, color: Colors.white, size: 32),
+                                    SizedBox(width: 16),
+                                    Text(
+                                      'ÁREA DA PRESIDÊNCIA: REGISTRAR ASSINATURA OFICIAL',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 20,
+                                        letterSpacing: 1.1,
+                                      ),
+                                    ),
+                                    SizedBox(width: 16),
+                                    Icon(Icons.arrow_forward_ios, color: Colors.white70),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: InkWell(
+                              onTap: () async {
+                                 // Fetch current cycle dynamically
+                                 String cycle = '2026';
+                                 try {
+                                   final doc = await FirebaseFirestore.instance.collection('config').doc('general').get();
+                                   if (doc.exists) cycle = doc.data()?['currentCycle'] ?? '2026';
+                                 } catch (_) {}
+
+                                 if (context.mounted) {
+                                   Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => CentralCiclosScreen(currentCycleYear: int.tryParse(cycle) ?? 2026),
+                                      ),
+                                    );
+                                 }
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.teal.shade700, Colors.teal.shade900],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.teal.shade700.withOpacity(0.4),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.update, color: Colors.white, size: 32),
+                                    SizedBox(width: 16),
+                                    Text(
+                                      'CENTRAL DE CICLOS E TRIÊNIOS',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 20,
+                                        letterSpacing: 1.1,
+                                      ),
+                                    ),
+                                    SizedBox(width: 16),
+                                    Icon(Icons.arrow_forward_ios, color: Colors.white70),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),

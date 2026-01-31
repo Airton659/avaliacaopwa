@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../utils/password_helper.dart';
 import 'trocar_senha_screen.dart';
 import 'signature_registration_screen.dart';
+import 'central_ciclos_screen.dart';
 
 class DashboardGestorScreen extends StatefulWidget {
   final String userMatricula;
@@ -127,27 +128,31 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
 
                       if (!isPresident) return const SizedBox.shrink();
 
-                      return Container(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                             Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => SignatureRegistrationScreen(userId: widget.userMatricula),
-                                ),
-                              );
-                          },
-                          icon: const Icon(Icons.edit_document),
-                          label: const Text('REGISTRAR/ATUALIZAR ASSINATURA OFICIAL'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber.shade700,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.all(16),
-                            elevation: 4,
+                      return Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                 Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => SignatureRegistrationScreen(userId: widget.userMatricula),
+                                    ),
+                                  );
+                              },
+                              icon: const Icon(Icons.edit_document),
+                              label: const Text('REGISTRAR/ATUALIZAR ASSINATURA OFICIAL'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.amber.shade700,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.all(16),
+                                elevation: 4,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       );
                     },
                   ),

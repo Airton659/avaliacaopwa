@@ -19,6 +19,10 @@ class Evaluation {
   final String? commissionPresidentPhotoUrl; // Face Photo (for QR)
   final Map<String, dynamic>? commissionPresidentMetadata; // Location etc.
 
+  // Historical / Imported Data
+  final double? manualScore; // Overrides answers if present
+  final String? specialStatus; // e.g. "Afastamento INSS", overrides everything
+
   Evaluation({
     required this.id,
     required this.year,
@@ -33,6 +37,8 @@ class Evaluation {
     this.commissionPresidentSignatureUrl,
     this.commissionPresidentPhotoUrl,
     this.commissionPresidentMetadata,
+    this.manualScore,
+    this.specialStatus,
   }) : createdAt = createdAt ?? DateTime.now();
 
   static String generateId(int year, String employeeId, EvaluationType type) {
@@ -40,6 +46,14 @@ class Evaluation {
   }
 
   double get average {
+    // 1. Special Status has no strict numeric score, usually matches "N/A" or handled in UI.
+    // However, if we must return a double, we returns 0.0 or a specific code.
+    // But for "Result" calculation, logic might differ.
+    if (specialStatus != null) return 0.0;
+
+    // 2. Manual Score overrides calculated answers
+    if (manualScore != null) return manualScore!;
+
     if (answers.isEmpty) return 0;
     final sum = answers.values.reduce((a, b) => a + b);
     return sum / answers.length;
@@ -60,6 +74,8 @@ class Evaluation {
       'commissionPresidentSignatureUrl': commissionPresidentSignatureUrl,
       'commissionPresidentPhotoUrl': commissionPresidentPhotoUrl,
       'commissionPresidentMetadata': commissionPresidentMetadata,
+      'manualScore': manualScore,
+      'specialStatus': specialStatus,
     };
   }
 
@@ -100,7 +116,7 @@ class Evaluation {
     return Evaluation(
       id: id,
       year: parsedYear,
-      type: EvaluationType.fromCode(data['tipo'] as String? ?? 'AUTO_OPERACIONAL'),
+      type: EvaluationType.fromCode(data['type'] as String? ?? data['tipo'] as String? ?? 'AUTO_OPERACIONAL'),
       answers: Map<String, int>.from(data['respostas'] as Map? ?? data['answers'] as Map? ?? {}),
       obs: data['obs'] as String? ?? data['observacoes'] as String?,
       employeeSnapshot: EmployeeSnapshot.fromMap(
@@ -113,6 +129,8 @@ class Evaluation {
       commissionPresidentSignatureUrl: data['commissionPresidentSignatureUrl'] as String?,
       commissionPresidentPhotoUrl: data['commissionPresidentPhotoUrl'] as String?,
       commissionPresidentMetadata: data['commissionPresidentMetadata'] as Map<String, dynamic>?,
+      manualScore: (data['manualScore'] as num?)?.toDouble(),
+      specialStatus: data['specialStatus'] as String?,
     );
   }
 }
