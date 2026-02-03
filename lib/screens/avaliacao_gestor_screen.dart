@@ -8,6 +8,8 @@ import 'signature_screen.dart';
 import 'dashboard_gestor_screen.dart';
 import '../utils/situacao_helper.dart';
 import '../widgets/multi_situacao_filter.dart';
+import '../widgets/multi_tipo_filter.dart';
+import '../widgets/expandable_filter_section.dart';
 import '../utils/password_helper.dart';
 
 class AvaliacaoGestorScreen extends StatefulWidget {
@@ -29,6 +31,7 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _filtro = '';
   Set<String> _filtrosSituacao = {};
+  Set<String> _filtrosTipo = {};
 
   @override
   void dispose() {
@@ -101,13 +104,20 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                   return data['ativo'] == true;
                 }).toList();
 
-                // Coletar situações únicas dos gestores ativos
+                // Coletar situações e tipos únicos dos gestores ativos
                 final situacoesDisponiveis = <String>{};
+                final tiposDisponiveis = <String>{};
+
                 for (var doc in gestores) {
                   final data = doc.data() as Map<String, dynamic>;
                   final situacao = data['situacao']?.toString() ?? '';
+                  final tipo = data['codtipo']?.toString() ?? '';
+
                   if (situacao.isNotEmpty) {
                     situacoesDisponiveis.add(situacao.toUpperCase());
+                  }
+                  if (tipo.isNotEmpty) {
+                    tiposDisponiveis.add(tipo.toUpperCase());
                   }
                 }
 
@@ -131,6 +141,15 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                   }).toList();
                 }
 
+                // Filtrar por tipo
+                if (_filtrosTipo.isNotEmpty) {
+                  gestores = gestores.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final tipo = data['codtipo']?.toString() ?? '';
+                    return _filtrosTipo.contains(tipo.toUpperCase());
+                  }).toList();
+                }
+
                 if (gestores.isEmpty) {
                   return const Center(
                     child: Text(
@@ -142,19 +161,42 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
 
                 return Column(
                   children: [
-                    // Dropdown de filtro dinâmico
-                    if (situacoesDisponiveis.isNotEmpty)
+                    // Filtros expansíveis
+                    if (situacoesDisponiveis.isNotEmpty || tiposDisponiveis.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         color: Colors.purple.shade50,
-                        child: MultiSituacaoFilter(
-                          selectedSituacoes: _filtrosSituacao,
-                          availableSituacoes: situacoesDisponiveis,
-                          onChanged: (newSelection) {
-                            setState(() {
-                              _filtrosSituacao = newSelection;
-                            });
-                          },
+                        child: Column(
+                          children: [
+                            if (situacoesDisponiveis.isNotEmpty)
+                              ExpandableFilterSection(
+                                title: 'Filtrar por Situação',
+                                count: _filtrosSituacao.length,
+                                child: MultiSituacaoFilter(
+                                  selectedSituacoes: _filtrosSituacao,
+                                  availableSituacoes: situacoesDisponiveis,
+                                  onChanged: (newSelection) {
+                                    setState(() {
+                                      _filtrosSituacao = newSelection;
+                                    });
+                                  },
+                                ),
+                              ),
+                            if (tiposDisponiveis.isNotEmpty)
+                              ExpandableFilterSection(
+                                title: 'Filtrar por Tipo',
+                                count: _filtrosTipo.length,
+                                child: MultiTipoFilter(
+                                  selectedTipos: _filtrosTipo,
+                                  availableTipos: tiposDisponiveis,
+                                  onChanged: (newSelection) {
+                                    setState(() {
+                                      _filtrosTipo = newSelection;
+                                    });
+                                  },
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     Expanded(

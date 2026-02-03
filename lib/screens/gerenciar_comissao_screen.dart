@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/situacao_helper.dart';
 import '../widgets/multi_situacao_filter.dart';
+import '../widgets/multi_tipo_filter.dart';
+import '../widgets/expandable_filter_section.dart';
 import '../utils/password_helper.dart';
 
 class GerenciarComissaoScreen extends StatefulWidget {
@@ -17,6 +19,7 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Set<String> _filtrosSituacao = {};
+  Set<String> _filtrosTipo = {};
 
   @override
   void dispose() {
@@ -94,40 +97,72 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
             ),
           ),
 
-          // Dropdown de filtro dinâmico (renderizado após coletar situações)
+            // Dropdown de filtro dinâmico
           StreamBuilder<QuerySnapshot>(
             stream: _firestore.collection('funcionarios').snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const SizedBox.shrink();
 
-              // Coletar situações únicas
+              // Coletar situações e tipos únicos
               final funcionariosAtivos = snapshot.data!.docs.where((doc) {
                 final data = doc.data() as Map<String, dynamic>;
                 return data['ativo'] == true;
               }).toList();
 
               final situacoesDisponiveis = <String>{};
+              final tiposDisponiveis = <String>{};
+
               for (var doc in funcionariosAtivos) {
                 final data = doc.data() as Map<String, dynamic>;
                 final situacao = data['situacao']?.toString() ?? '';
+                final tipo = data['codtipo']?.toString() ?? '';
+
                 if (situacao.isNotEmpty) {
                   situacoesDisponiveis.add(situacao.toUpperCase());
                 }
+                if (tipo.isNotEmpty) {
+                  tiposDisponiveis.add(tipo.toUpperCase());
+                }
               }
 
-              if (situacoesDisponiveis.isEmpty) return const SizedBox.shrink();
+              if (situacoesDisponiveis.isEmpty && tiposDisponiveis.isEmpty)
+                return const SizedBox.shrink();
 
               return Container(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 color: Colors.deepPurple.shade50,
-                child: MultiSituacaoFilter(
-                  selectedSituacoes: _filtrosSituacao,
-                  availableSituacoes: situacoesDisponiveis,
-                  onChanged: (newSelection) {
-                    setState(() {
-                      _filtrosSituacao = newSelection;
-                    });
-                  },
+                child: Column(
+                  children: [
+                    if (situacoesDisponiveis.isNotEmpty)
+                      ExpandableFilterSection(
+                        title: 'Filtrar por Situação',
+                        count: _filtrosSituacao.length,
+                        child: MultiSituacaoFilter(
+                          selectedSituacoes: _filtrosSituacao,
+                          availableSituacoes: situacoesDisponiveis,
+                          onChanged: (newSelection) {
+                            setState(() {
+                              _filtrosSituacao = newSelection;
+                            });
+                          },
+                        ),
+                      ),
+                    if (tiposDisponiveis.isNotEmpty)
+                      ExpandableFilterSection(
+                        title: 'Filtrar por Tipo',
+                        count: _filtrosTipo.length,
+                        child: MultiTipoFilter(
+                          selectedTipos: _filtrosTipo,
+                          availableTipos: tiposDisponiveis,
+                          onChanged: (newSelection) {
+                            setState(() {
+                              _filtrosTipo = newSelection;
+                            });
+                          },
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
               );
             },
@@ -201,6 +236,15 @@ class _GerenciarComissaoScreenState extends State<GerenciarComissaoScreen> {
                         final data = doc.data() as Map<String, dynamic>;
                         final situacao = data['situacao']?.toString() ?? '';
                         return _filtrosSituacao.contains(situacao.toUpperCase());
+                      }).toList();
+                    }
+
+                    // Filtro por tipo (multi-seleção)
+                    if (_filtrosTipo.isNotEmpty) {
+                      funcionarios = funcionarios.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final tipo = data['codtipo']?.toString() ?? '';
+                        return _filtrosTipo.contains(tipo.toUpperCase());
                       }).toList();
                     }
 

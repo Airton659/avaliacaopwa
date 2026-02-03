@@ -16,6 +16,7 @@ class Employee {
   final String? escolaridadeAtual;
   final String? vencimento;
   final int? currentTrienniumStart;
+  final String? codtipo;
 
   Employee({
     required this.id,
@@ -33,6 +34,7 @@ class Employee {
     this.escolaridadeAtual,
     this.vencimento,
     this.currentTrienniumStart,
+    this.codtipo,
   });
 
   bool get isActive => situacao == 'Ativo';
@@ -54,6 +56,7 @@ class Employee {
       'escolaridadeAtual': escolaridadeAtual,
       'vencimento': vencimento,
       'currentTrienniumStart': currentTrienniumStart,
+      'codtipo': codtipo,
     };
   }
 
@@ -83,6 +86,7 @@ class Employee {
       escolaridadeAtual: data['escolaridade']?.toString() ?? data['escolaridadeAtual'] as String?,
       vencimento: data['salario']?.toString() ?? data['vencimento'] as String?,
       currentTrienniumStart: data['currentTrienniumStart'] as int?,
+      codtipo: data['codtipo']?.toString(),
     );
   }
 

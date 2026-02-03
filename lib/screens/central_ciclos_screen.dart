@@ -9,6 +9,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/employee.dart';
 import '../utils/situacao_helper.dart';
 import '../widgets/multi_situacao_filter.dart';
+import '../widgets/multi_tipo_filter.dart';
+import '../widgets/expandable_filter_section.dart';
 
 class CentralCiclosScreen extends StatefulWidget {
   final int currentCycleYear; // e.g., 2026
@@ -26,6 +28,7 @@ class _CentralCiclosScreenState extends State<CentralCiclosScreen> {
   String _searchQuery = '';
   String? _filterStage; // '1' (Inicio), '2' (Meio), '3' (Fim), '4+' (Vencido)
   Set<String> _filtrosSituacao = {}; // 'A' (Ativo), 'I' (Inativo), 'F' (Falecido), 'P' (Pensionista), 'L' (Licença)
+  Set<String> _filtrosTipo = {};
   
   final Set<String> _selectedEmployees = {};
   bool _isLoading = false;
@@ -70,16 +73,22 @@ class _CentralCiclosScreenState extends State<CentralCiclosScreen> {
                 int totalExpired = 0;
                 int totalNull = 0;
                 
-                // Coletar situações únicas
+                // Coletar situações e tipos únicos
                 final situacoesDisponiveis = <String>{};
+                final tiposDisponiveis = <String>{};
 
                 for (var doc in snapshot.data!.docs) {
                    final data = doc.data() as Map<String, dynamic>;
                    
                    // Coletar situação
                    final situacao = data['situacao']?.toString() ?? '';
+                   final tipo = data['codtipo']?.toString() ?? '';
+
                    if (situacao.isNotEmpty) {
                      situacoesDisponiveis.add(situacao.toUpperCase());
+                   }
+                   if (tipo.isNotEmpty) {
+                     tiposDisponiveis.add(tipo.toUpperCase());
                    }
 
                    final start = data['currentTrienniumStart'] as int?;
@@ -109,17 +118,36 @@ class _CentralCiclosScreenState extends State<CentralCiclosScreen> {
                            _buildStatBadge('Renovação', totalExpired, Colors.red),
                         ],
                       ),
-                      if (situacoesDisponiveis.isNotEmpty) ...[
+                      if (situacoesDisponiveis.isNotEmpty || tiposDisponiveis.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        MultiSituacaoFilter(
-                          selectedSituacoes: _filtrosSituacao,
-                          availableSituacoes: situacoesDisponiveis,
-                          onChanged: (newSelection) {
-                            setState(() {
-                              _filtrosSituacao = newSelection;
-                            });
-                          },
-                        ),
+                        if (situacoesDisponiveis.isNotEmpty)
+                          ExpandableFilterSection(
+                            title: 'Filtrar por Situação',
+                            count: _filtrosSituacao.length,
+                            child: MultiSituacaoFilter(
+                              selectedSituacoes: _filtrosSituacao,
+                              availableSituacoes: situacoesDisponiveis,
+                              onChanged: (newSelection) {
+                                setState(() {
+                                  _filtrosSituacao = newSelection;
+                                });
+                              },
+                            ),
+                          ),
+                        if (tiposDisponiveis.isNotEmpty)
+                          ExpandableFilterSection(
+                            title: 'Filtrar por Tipo',
+                            count: _filtrosTipo.length,
+                            child: MultiTipoFilter(
+                              selectedTipos: _filtrosTipo,
+                              availableTipos: tiposDisponiveis,
+                              onChanged: (newSelection) {
+                                setState(() {
+                                  _filtrosTipo = newSelection;
+                                });
+                              },
+                            ),
+                          ),
                       ],
                     ],
                   ),
@@ -201,6 +229,12 @@ class _CentralCiclosScreenState extends State<CentralCiclosScreen> {
                      // Situacao Filter (multi-selection)
                      if (_filtrosSituacao.isNotEmpty) {
                         if (!_filtrosSituacao.contains(data['situacao'])) return false;
+                     }
+
+                     // Type Filter (multi-selection)
+                     if (_filtrosTipo.isNotEmpty) {
+                        final tipo = data['codtipo']?.toString() ?? '';
+                        if (!_filtrosTipo.contains(tipo.toUpperCase())) return false;
                      }
 
                      // Stage Filter

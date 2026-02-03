@@ -10,6 +10,8 @@ import '../services/pdf_service.dart';
 import '../services/firebase_service.dart';
 import '../utils/situacao_helper.dart';
 import '../widgets/multi_situacao_filter.dart';
+import '../widgets/multi_tipo_filter.dart';
+import '../widgets/expandable_filter_section.dart';
 import '../models/commission_president.dart';
 
 class CentralImpressaoScreen extends StatefulWidget {
@@ -26,6 +28,7 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
   
   String _searchQuery = '';
   Set<String> _filtrosSituacao = {};
+  Set<String> _filtrosTipo = {};
   int _selectedYear = DateTime.now().year;
   bool _keepSelection = false;
   
@@ -127,6 +130,14 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
       if (_filtrosSituacao.isNotEmpty) {
         final situacao = data['situacao']?.toString() ?? '';
         if (!_filtrosSituacao.contains(situacao.toUpperCase())) {
+          continue;
+        }
+      }
+
+      // Apply tipo filter (multi-selection)
+      if (_filtrosTipo.isNotEmpty) {
+        final tipo = data['codtipo']?.toString() ?? '';
+        if (!_filtrosTipo.contains(tipo.toUpperCase())) {
           continue;
         }
       }
@@ -589,43 +600,77 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                const SizedBox(height: 12),
+                // Filters Row (Situation & Type)
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Situacao filter (populated dynamically similar to other screens)
+                    // Situacao filter
                     Expanded(
                       child: FutureBuilder<List<String>>(
                         future: _getAvailableSituacoes(),
                         builder: (context, snapshot) {
                           final situacoes = snapshot.data ?? [];
-                          return MultiSituacaoFilter(
-                            selectedSituacoes: _filtrosSituacao,
-                            availableSituacoes: situacoes.toSet(),
-                            onChanged: (newSelection) {
-                              setState(() {
-                                _filtrosSituacao = newSelection;
-                              });
-                            },
+                          if (situacoes.isEmpty) return const SizedBox.shrink();
+                          
+                          return ExpandableFilterSection(
+                            title: 'Filtrar por Situação',
+                            count: _filtrosSituacao.length,
+                            child: MultiSituacaoFilter(
+                              selectedSituacoes: _filtrosSituacao,
+                              availableSituacoes: situacoes.toSet(),
+                              onChanged: (newSelection) {
+                                setState(() {
+                                  _filtrosSituacao = newSelection;
+                                });
+                              },
+                            ),
                           );
                         },
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Keep selection checkbox
+                    // Type Filter
                     Expanded(
-                      child: CheckboxListTile(
-                        title: const Text('Manter seleção ao imprimir'),
-                        value: _keepSelection,
-                        onChanged: (value) {
-                          setState(() {
-                            _keepSelection = value ?? false;
-                          });
+                      child: FutureBuilder<List<String>>(
+                        future: _getAvailableTipos(),
+                        builder: (context, snapshot) {
+                          final tipos = snapshot.data ?? [];
+                          if (tipos.isEmpty) return const SizedBox.shrink();
+
+                          return ExpandableFilterSection(
+                            title: 'Filtrar por Tipo',
+                            count: _filtrosTipo.length,
+                            child: MultiTipoFilter(
+                              selectedTipos: _filtrosTipo,
+                              availableTipos: tipos.toSet(),
+                              onChanged: (newSelection) {
+                                setState(() {
+                                  _filtrosTipo = newSelection;
+                                });
+                              },
+                            ),
+                          );
                         },
-                        controlAffinity: ListTileControlAffinity.leading,
-                        contentPadding: EdgeInsets.zero,
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                // Keep selection checkbox
+                CheckboxListTile(
+                  title: const Text('Manter seleção ao imprimir'),
+                  value: _keepSelection,
+                  onChanged: (value) {
+                    setState(() {
+                      _keepSelection = value ?? false;
+                    });
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
               ],
             ),
           ),
@@ -966,6 +1011,29 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
       }
 
       final list = situacoes.toList()..sort();
+      return list;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<String>> _getAvailableTipos() async {
+    try {
+      final snapshot = await _firestore
+          .collection('funcionarios')
+          .where('ativo', isEqualTo: true)
+          .get();
+
+      final tipos = <String>{};
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final tipo = data['codtipo']?.toString() ?? '';
+        if (tipo.isNotEmpty) {
+          tipos.add(tipo.toUpperCase());
+        }
+      }
+
+      final list = tipos.toList()..sort();
       return list;
     } catch (e) {
       return [];
