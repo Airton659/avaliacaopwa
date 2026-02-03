@@ -671,8 +671,6 @@ class _CentralImpressaoScreenState extends State<CentralImpressaoScreen> {
                 ),
               ],
             ),
-              ],
-            ),
           ),
           
           // BULK SELECTION BAR (Anexos)
