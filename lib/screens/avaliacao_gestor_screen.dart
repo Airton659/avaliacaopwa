@@ -7,6 +7,7 @@ import 'formulario_avaliacao_screen.dart';
 import 'signature_screen.dart';
 import 'dashboard_gestor_screen.dart';
 import '../utils/situacao_helper.dart';
+import '../widgets/multi_situacao_filter.dart';
 import '../utils/password_helper.dart';
 
 class AvaliacaoGestorScreen extends StatefulWidget {
@@ -27,7 +28,7 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _searchController = TextEditingController();
   String _filtro = '';
-  String? _filtroSituacao;
+  Set<String> _filtrosSituacao = {};
 
   @override
   void dispose() {
@@ -122,11 +123,11 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                 }
 
                 // Filtrar por situação
-                if (_filtroSituacao != null) {
+                if (_filtrosSituacao.isNotEmpty) {
                   gestores = gestores.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     final situacao = data['situacao']?.toString() ?? '';
-                    return situacao.toUpperCase() == _filtroSituacao;
+                    return _filtrosSituacao.contains(situacao.toUpperCase());
                   }).toList();
                 }
 
@@ -146,36 +147,12 @@ class _AvaliacaoGestorScreenState extends State<AvaliacaoGestorScreen> {
                       Container(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         color: Colors.purple.shade50,
-                        child: DropdownButtonFormField<String>(
-                          value: _filtroSituacao,
-                          decoration: InputDecoration(
-                            labelText: 'Filtrar por Situação',
-                            labelStyle: const TextStyle(fontSize: 16),
-                            prefixIcon: const Icon(Icons.filter_list),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          style: const TextStyle(fontSize: 16, color: Colors.black),
-                          items: [
-                            const DropdownMenuItem<String>(
-                              value: null,
-                              child: Text('Todas'),
-                            ),
-                            ...situacoesDisponiveis.map((situacao) {
-                              final descricao = SituacaoHelper.situacoes[situacao] ?? situacao;
-                              return DropdownMenuItem<String>(
-                                value: situacao,
-                                child: Text('$situacao - $descricao'),
-                              );
-                            }).toList()..sort((a, b) => a.value!.compareTo(b.value!)),
-                          ],
-                          onChanged: (value) {
+                        child: MultiSituacaoFilter(
+                          selectedSituacoes: _filtrosSituacao,
+                          availableSituacoes: situacoesDisponiveis,
+                          onChanged: (newSelection) {
                             setState(() {
-                              _filtroSituacao = value;
+                              _filtrosSituacao = newSelection;
                             });
                           },
                         ),
