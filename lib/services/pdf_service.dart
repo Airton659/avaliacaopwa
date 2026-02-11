@@ -5713,21 +5713,49 @@ class PdfService {
               
               pw.SizedBox(height: 10),
               
-              // RESULT (Style 3: Text Outside + Expanded Box)
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                 pw.Text('Resultado: ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
-                 pw.SizedBox(width: 5),
-                 pw.Expanded(
-                    child: pw.Container(
-                       padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                       decoration: pw.BoxDecoration(border: pw.Border.all()),
-                       alignment: pw.Alignment.centerLeft,
-                       child: pw.Text(recomendacaoResult.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+              // RESULT (Specific User Request: Table with Serif Label + Empty Field)
+              pw.Container(
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    top: pw.BorderSide(width: 1),
+                    bottom: pw.BorderSide(width: 1),
+                    left: pw.BorderSide(width: 1),
+                    right: pw.BorderSide(width: 1),
+                  ),
+                ),
+                child: pw.Table(
+                  columnWidths: {
+                    0: const pw.IntrinsicColumnWidth(),
+                    1: const pw.FlexColumnWidth(),
+                  },
+                  border: const pw.TableBorder(
+                    verticalInside: pw.BorderSide(width: 1),
+                  ),
+                  children: [
+                    pw.TableRow(
+                      children: [
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                          child: pw.Text(
+                            'Resultado:',
+                            style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold, 
+                              fontSize: 12,
+                              font: pw.Font.timesBold(), // Serif Bold
+                            ),
+                          ),
+                        ),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+                          // Empty cell as requested ("Deve ser uma célula vazia")
+                          // If specific height is needed to match a "form field", padding helps.
+                          child: pw.Text('', style: const pw.TextStyle(fontSize: 12)),
+                        ),
+                      ]
                     )
-                 )
-              ]),
+                  ]
+                ),
+              ),
               
               pw.SizedBox(height: 10),
               pw.Text('RECOMENDA-SE:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
