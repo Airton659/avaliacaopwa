@@ -5776,23 +5776,55 @@ class PdfService {
 
               pw.SizedBox(height: 15),
               
-              pw.Text('Itabira, ${DateTime.now().day} de ${_getMonthName(DateTime.now().month)} de ${DateTime.now().year}.', textAlign: pw.TextAlign.center, style: const pw.TextStyle(fontSize: 10)),
+              pw.Center(
+                  child: pw.Text('Itabira, ${DateTime.now().day} de ${_getMonthName(DateTime.now().month)} de ${DateTime.now().year}.', style: const pw.TextStyle(fontSize: 10))
+              ),
               
               pw.SizedBox(height: 15),
               
-              // COMMISSION SIGNATURE
               // COMMISSION SIGNATURE
               _buildCommissionSignature(president, presidentSignatureImage),
                   
               pw.SizedBox(height: 25), 
               
               // EMPLOYEE SIGNATURE
-               pw.Column(
-                children: [
-                   pw.Container(width: 300, decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide()))),
-                   pw.SizedBox(height: 2),
-                   pw.Text('Assinatura do Empregado (Ciente)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                ]
+              pw.Center(
+                child: pw.Table(
+                  columnWidths: {
+                    0: const pw.FixedColumnWidth(300),
+                    1: const pw.FixedColumnWidth(20),
+                    2: const pw.IntrinsicColumnWidth(),
+                  },
+                  defaultVerticalAlignment: pw.TableCellVerticalAlignment.bottom,
+                  children: [
+                    // ROW 1: Line and Ciente Text
+                    pw.TableRow(
+                      children: [
+                        pw.Container(
+                          height: 15, 
+                          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide()))
+                        ),
+                        pw.SizedBox(),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(bottom: 2), 
+                          child: pw.Text('Ciente em: ___/___/______', style: pw.TextStyle(fontSize: 10))
+                        ),
+                      ]
+                    ),
+                    // ROW 2: Label (Centered under Line)
+                    pw.TableRow(
+                      children: [
+                        pw.Container(
+                           padding: const pw.EdgeInsets.only(top: 2),
+                           alignment: pw.Alignment.center,
+                           child: pw.Text('Empregado', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))
+                        ),
+                        pw.SizedBox(),
+                        pw.SizedBox(),
+                      ]
+                    )
+                  ]
+                )
               ),
               
               pw.SizedBox(height: 20),
