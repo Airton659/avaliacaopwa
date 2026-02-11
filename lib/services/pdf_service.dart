@@ -2564,6 +2564,16 @@ class PdfService {
 
 
 
+  // ANEXO X (Placeholder for Year 1)
+  Future<void> buildAnexoX(pw.Document pdf, Employee employee, Evaluation? autoEval, Evaluation? gestorEval, int year, {CommissionPresident? president}) async {
+    pdf.addPage(pw.Page(build: (context) => pw.Center(child: pw.Text('ANEXO X - Ano 1 (Em Desenvolvimento)'))));
+  }
+
+  // ANEXO XI (Placeholder for Year 2)
+  Future<void> buildAnexoXI(pw.Document pdf, Employee employee, Evaluation? autoEval, Evaluation? gestorEval, int year, {CommissionPresident? president}) async {
+    pdf.addPage(pw.Page(build: (context) => pw.Center(child: pw.Text('ANEXO XI - Ano 2 (Em Desenvolvimento)'))));
+  }
+ 
   Future<void> buildAnexoV(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
 
 
