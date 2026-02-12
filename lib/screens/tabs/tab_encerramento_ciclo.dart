@@ -71,6 +71,8 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
   Set<String> _filtrosTipo = {};
 
   Set<String> _filtrosMedia = {}; // 'High', 'Med', 'Low', 'Critical'
+  
+  Set<String> _filtrosStatus = {}; // 'PENDENTE', 'CONCLUIDA'
 
   int _referenceYear = DateTime.now().year;
 
@@ -95,13 +97,12 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
 
 
   @override
-
   void initState() {
-
     super.initState();
-
+    if (widget.initialSearch != null) {
+      _searchQuery = widget.initialSearch!.toLowerCase();
+    }
     _loadInitialData();
-
   }
 
 
@@ -331,12 +332,17 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
 
 
         // Tipo
-
         final tipo = data.employee.codtipo?.toUpperCase() ?? '';
-
         if (_filtrosTipo.isNotEmpty && !_filtrosTipo.contains(tipo)) return false;
 
-
+        // Status (PENDENCIA / CONCLUIDA)
+        // Note: data.hasPendingDisciplinary covers 'aguardando_comissao'
+        if (_filtrosStatus.isNotEmpty) {
+           bool match = false;
+           if (_filtrosStatus.contains('PENDENTE') && data.hasPendingDisciplinary) match = true;
+           if (_filtrosStatus.contains('CONCLUIDA') && !data.hasPendingDisciplinary) match = true;
+           if (!match) return false;
+        }
 
         // Media Filter
 
@@ -693,18 +699,33 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
 
                        // Tipo
 
-                      Expanded(
-
+                       Expanded(
                          child: ExpandableFilterSection(
-
                            title: 'Tipo',
-
                            count: _filtrosTipo.length,
-
                            child: MultiTipoFilter(selectedTipos: _filtrosTipo, availableTipos: _availableTipos.toSet(), onChanged: (v) { setState(() => _filtrosTipo = v); _applyFilters(); })
-
                          )
-
+                      ),
+                      const SizedBox(width: 8),
+                      // Status
+                      Expanded(
+                         child: ExpandableFilterSection(
+                           title: 'Status',
+                           count: _filtrosStatus.length,
+                           child: Wrap(spacing: 8, children: [
+                              FilterChip(
+                                label: const Text('Pendência (Comissão)'), 
+                                selected: _filtrosStatus.contains('PENDENTE'), 
+                                avatar: const Icon(Icons.flag, size: 16, color: Colors.red),
+                                onSelected: (s) { setState(() { s ? _filtrosStatus.add('PENDENTE') : _filtrosStatus.remove('PENDENTE'); _applyFilters(); }); }
+                              ),
+                              FilterChip(
+                                label: const Text('Concluída'), 
+                                selected: _filtrosStatus.contains('CONCLUIDA'), 
+                                onSelected: (s) { setState(() { s ? _filtrosStatus.add('CONCLUIDA') : _filtrosStatus.remove('CONCLUIDA'); _applyFilters(); }); }
+                              ),
+                           ])
+                         )
                       )
 
                    ])

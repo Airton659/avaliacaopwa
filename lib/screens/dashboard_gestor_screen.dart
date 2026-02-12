@@ -252,9 +252,34 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
                                   children: [
                                     Expanded(child: Text(employeeData['nome'] ?? 'Sem Nome')),
                                     if (hasDisciplinary)
-                                       const Tooltip(
-                                          message: 'Aguardando entrega de prova física à comissão',
-                                          child: Icon(Icons.flag, color: Colors.red),
+                                       Tooltip(
+                                          message: 'Aguardando entrega de prova física à comissão. Clique para resolver.',
+                                          child: InkWell(
+                                            onTap: () {
+                                              if (widget.isComissao) {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => CentralImpressaoScreen(
+                                                      initialIndex: 1, // Encerramento de Ciclo
+                                                      initialSearch: employeeData['nome'], // Filter by name
+                                                    ),
+                                                  ),
+                                                );
+                                              } else {
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Aguardando validação da prova física pela Comissão.'),
+                                                    backgroundColor: Colors.orange,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(8.0),
+                                              child: Icon(Icons.flag, color: Colors.red),
+                                            ),
+                                          ),
                                        )
                                   ],
                                 ),
