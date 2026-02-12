@@ -26,9 +26,9 @@ O sistema não deve gerar o "Termo de Conclusão" (Anexo XII) para quem ainda es
 
 ### 3. Implementação dos Anexos Parciais (Prioridade: Média)
 Criar os layouts para os documentos intermediários mencionados ("os outros dois anexos").
-- [ ] **Criar Anexo X (Ano 1):** Layout simplificado focando na nota do primeiro ano e ciência parciais.
-- [ ] **Criar Anexo XI (Ano 2):** Layout acumulando notas do Ano 1 e Ano 2.
-- [ ] **Integração na Tela:** Ajustar o botão "Gerar Docs" para chamar a função correta (`generateAnexoX`, `generateAnexoXI` ou `generateAnexoXII`) dependendo do funcionário selecionado.
+- [x] **Criar Anexo X (Ano 1):** Layout simplificado focando na nota do primeiro ano e ciência parciais.
+- [x] **Criar Anexo XI (Ano 2):** Layout acumulando notas do Ano 1 e Ano 2.
+- [x] **Integração na Tela:** Ajustar o botão "Gerar Docs" para chamar a função correta (`generateAnexoX`, `generateAnexoXI` ou `generateAnexoXII`) dependendo do funcionário selecionado.
 
 ---
 

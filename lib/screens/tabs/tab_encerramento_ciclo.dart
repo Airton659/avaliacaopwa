@@ -499,9 +499,9 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
           if (cycleYear > 3) cycleYear = 3;
 
           if (cycleYear == 1) {
-              await _pdfService.buildAnexoX(pdf, item.employee, item.evaluations.firstOrNull, item.evaluations.lastOrNull, _referenceYear, president: president);
+              await _pdfService.buildAnexoX(pdf, item.employee, item.evaluations, _referenceYear, president: president);
           } else if (cycleYear == 2) {
-              await _pdfService.buildAnexoXI(pdf, item.employee, item.evaluations.firstOrNull, item.evaluations.lastOrNull, _referenceYear, president: president);
+              await _pdfService.buildAnexoXI(pdf, item.employee, item.evaluations, _referenceYear, president: president);
           } else {
               // Year 3 (Final)
               await _pdfService.buildAnexoXII(

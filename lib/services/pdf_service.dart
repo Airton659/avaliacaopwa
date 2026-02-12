@@ -2564,14 +2564,342 @@ class PdfService {
 
 
 
-  // ANEXO X (Placeholder for Year 1)
-  Future<void> buildAnexoX(pw.Document pdf, Employee employee, Evaluation? autoEval, Evaluation? gestorEval, int year, {CommissionPresident? president}) async {
-    pdf.addPage(pw.Page(build: (context) => pw.Center(child: pw.Text('ANEXO X - Ano 1 (Em Desenvolvimento)'))));
+  // ANEXO X (Year 1 - Result)
+  // ANEXO X (Year 1 - Result)
+  Future<void> buildAnexoX(
+    pw.Document pdf, 
+    Employee employee, 
+    List<Evaluation> evaluations, 
+    int currentCycleYear,
+    {CommissionPresident? president}
+  ) async {
+    
+    // Logic: Use the ACTUAL evaluation year as the start year if available.
+    // This prevents mismatch if the reference year is different from the eval year.
+    final startYear = evaluations.isNotEmpty ? evaluations.first.year : currentCycleYear;
+    final years = [startYear, startYear + 1, startYear + 2];
+    
+    // Scores Map
+    final Map<int, double?> scores = {};
+    for (var year in years) {
+       try {
+         final eval = evaluations.firstWhere((e) => e.year == year);
+         double? score;
+         if (eval.manualScore != null) {
+             score = eval.manualScore;
+         } else if (eval.answers.isNotEmpty) {
+            double sum = 0;
+            eval.answers.forEach((k, v) => sum += (double.tryParse(v.toString()) ?? 0));
+            score = sum;
+         }
+         scores[year] = score;
+       } catch (_) {
+         scores[year] = null;
+       }
+    }
+
+    pw.ImageProvider? presidentSignatureImage;
+    if (president?.signatureUrl != null && president!.signatureUrl.isNotEmpty) {
+      try {
+        presidentSignatureImage = await resolveImage(president.signatureUrl);
+      } catch (e) {}
+    }
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+        build: (pw.Context context) {
+          // Custom Title using the Start Year
+          final title = 'RESULTADO DA AVALIAÇÃO DE DESEMPENHO $startYear';
+
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              _buildHeader('', null, customTitle: title, customSubtitle: ''),
+              
+              _buildIdentificationBlock(employee),
+              
+              // Functional Situation
+              _buildFunctionalSituationBlock(evaluations.isNotEmpty ? evaluations.first : null),
+
+              pw.SizedBox(height: 10),
+              
+              // Text
+              pw.Text(
+                'Por meio deste termo, dá-se início ao processo de avaliação de desempenho correspondente ao triênio $startYear-${startYear + 1}-${startYear + 2}, para todos os fins de direito, ficando o(a) Empregado(a) ciente da nota correspondente ao presente ano.',
+                style: const pw.TextStyle(fontSize: 10), 
+                textAlign: pw.TextAlign.justify
+              ),
+              
+              pw.SizedBox(height: 25), // More space before table
+              
+              // Scores Table (Vertical spacing increased)
+              pw.Center(
+                child: pw.Container(
+                  width: 300, 
+                  child: pw.Table(
+                    border: pw.TableBorder.all(),
+                    columnWidths: {
+                      0: const pw.FlexColumnWidth(1),
+                      1: const pw.FlexColumnWidth(1),
+                      2: const pw.FlexColumnWidth(1),
+                    },
+                    children: [
+                      pw.TableRow(
+                        children: years.map((y) => pw.Container(
+                           padding: const pw.EdgeInsets.symmetric(vertical: 8), // Increased header height
+                           alignment: pw.Alignment.center,
+                           child: pw.Text('$y', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))
+                        )).toList(),
+                      ),
+                      pw.TableRow(
+                         children: years.map((y) {
+                           final s = scores[y];
+                           return pw.Container(
+                             height: 30, // Fixed height for score (User requested "space where the grade comes")
+                             alignment: pw.Alignment.center,
+                             child: pw.Text(s != null ? s.toStringAsFixed(1) : '', style: const pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))
+                           );
+                         }).toList(),
+                      )
+                    ]
+                  ),
+                )
+              ),
+               
+              // Push Footer to Bottom
+              pw.Spacer(),
+
+              // Date
+              pw.Center(
+                  child: pw.Text('Itabira, ${DateTime.now().day} de ${_getMonthName(DateTime.now().month)} de ${DateTime.now().year}.', style: const pw.TextStyle(fontSize: 10))
+              ),
+              
+              pw.SizedBox(height: 15),
+              
+              // Commission Signature
+              _buildCommissionSignature(president, presidentSignatureImage),
+                  
+              pw.SizedBox(height: 25), 
+              
+              // Employee Signature
+              pw.Center(
+                child: pw.Table(
+                  columnWidths: {
+                    0: const pw.FixedColumnWidth(300),
+                    1: const pw.FixedColumnWidth(20),
+                    2: const pw.IntrinsicColumnWidth(),
+                  },
+                  defaultVerticalAlignment: pw.TableCellVerticalAlignment.bottom,
+                  children: [
+                    pw.TableRow(
+                      children: [
+                        pw.Container(
+                          height: 15, 
+                          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide()))
+                        ),
+                        pw.SizedBox(),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(bottom: 2), 
+                          child: pw.Text('Ciente em: ___/___/______', style: pw.TextStyle(fontSize: 10))
+                        ),
+                      ]
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Container(
+                           padding: const pw.EdgeInsets.only(top: 2),
+                           alignment: pw.Alignment.center,
+                           child: pw.Text('Empregado', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))
+                        ),
+                        pw.SizedBox(),
+                        pw.SizedBox(),
+                      ]
+                    )
+                  ]
+                )
+              ),
+              
+              pw.SizedBox(height: 20),
+            ],
+          );
+        },
+      ),
+    );
   }
 
-  // ANEXO XI (Placeholder for Year 2)
-  Future<void> buildAnexoXI(pw.Document pdf, Employee employee, Evaluation? autoEval, Evaluation? gestorEval, int year, {CommissionPresident? president}) async {
-    pdf.addPage(pw.Page(build: (context) => pw.Center(child: pw.Text('ANEXO XI - Ano 2 (Em Desenvolvimento)'))));
+  // ANEXO XI (Year 2 - Result)
+  Future<void> buildAnexoXI(
+    pw.Document pdf, 
+    Employee employee, 
+    List<Evaluation> evaluations, 
+    int currentCycleYear,
+    {CommissionPresident? president}
+  ) async {
+    
+    // Logic: 
+    // If this is Year 2, then evaluations.length should be 2 ideally.
+    // The previous year is Year 1.
+    // Start Year of Triennium = currentCycleYear - 1 (approximately, or rely on eval years).
+    
+    // User Text Requirement:
+    // "triênio [ano corrente -1}-{ano corrente}-{ano corrente +1}"
+    // "notas correspondentes aos anos de [ano corrente -1}-{ano corrente}"
+    
+    // Better logic: Find the latest year in evals, assume it's current.
+    final latestYear = evaluations.isNotEmpty ? evaluations.map((e) => e.year).reduce((a, b) => a > b ? a : b) : currentCycleYear;
+    final startYear = latestYear - 1; // Year 1
+    
+    // Years to show in table: Year 1, Year 2(=Latest), Year 3
+    final years = [startYear, startYear + 1, startYear + 2];
+    
+    // Scores Map
+    final Map<int, double?> scores = {};
+    for (var year in years) {
+       try {
+         final eval = evaluations.firstWhere((e) => e.year == year);
+         double? score;
+         if (eval.manualScore != null) {
+             score = eval.manualScore;
+         } else if (eval.answers.isNotEmpty) {
+            double sum = 0;
+            eval.answers.forEach((k, v) => sum += (double.tryParse(v.toString()) ?? 0));
+            score = sum;
+         }
+         scores[year] = score;
+       } catch (_) {
+         scores[year] = null;
+       }
+    }
+
+    pw.ImageProvider? presidentSignatureImage;
+    if (president?.signatureUrl != null && president!.signatureUrl.isNotEmpty) {
+      try {
+        presidentSignatureImage = await resolveImage(president.signatureUrl);
+      } catch (e) {}
+    }
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+        build: (pw.Context context) {
+          // Custom Title matches Year 2 implies Current Year
+          final title = 'RESULTADO DA AVALIAÇÃO DE DESEMPENHO $latestYear';
+
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _buildHeader('', null, customTitle: title, customSubtitle: ''),
+              
+              _buildIdentificationBlock(employee),
+              
+              _buildFunctionalSituationBlock(evaluations.isNotEmpty ? evaluations.last : null),
+
+              pw.SizedBox(height: 10),
+              
+              // Specific Text for Anexo XI
+              pw.Text(
+                'Por meio deste termo, dá-se sequência ao processo de avaliação de desempenho referente ao triênio $startYear-${startYear + 1}-${startYear + 2}, para todos os fins de direito, ficando o(a) Empregado(a) ciente das notas correspondentes aos anos de $startYear-${startYear + 1}.',
+                style: const pw.TextStyle(fontSize: 10), 
+                textAlign: pw.TextAlign.justify
+              ),
+              
+              pw.SizedBox(height: 25), 
+              
+              // Scores Table
+              pw.Center(
+                child: pw.Container(
+                  width: 300, 
+                  child: pw.Table(
+                    border: pw.TableBorder.all(),
+                    columnWidths: {
+                      0: const pw.FlexColumnWidth(1),
+                      1: const pw.FlexColumnWidth(1),
+                      2: const pw.FlexColumnWidth(1),
+                    },
+                    children: [
+                      pw.TableRow(
+                        children: years.map((y) => pw.Container(
+                           padding: const pw.EdgeInsets.symmetric(vertical: 8),
+                           alignment: pw.Alignment.center,
+                           child: pw.Text('$y', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))
+                        )).toList(),
+                      ),
+                      pw.TableRow(
+                         children: years.map((y) {
+                           final s = scores[y];
+                           return pw.Container(
+                             height: 30, // Fixed height
+                             alignment: pw.Alignment.center,
+                             child: pw.Text(s != null ? s.toStringAsFixed(1) : '', style: const pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))
+                           );
+                         }).toList(),
+                      )
+                    ]
+                  ),
+                )
+              ),
+               
+              pw.Spacer(),
+
+              // Date
+              pw.Center(
+                  child: pw.Text('Itabira, ${DateTime.now().day} de ${_getMonthName(DateTime.now().month)} de ${DateTime.now().year}.', style: const pw.TextStyle(fontSize: 10))
+              ),
+              
+              pw.SizedBox(height: 15),
+              
+              _buildCommissionSignature(president, presidentSignatureImage),
+                  
+              pw.SizedBox(height: 25), 
+              
+              // Employee Signature
+              pw.Center(
+                child: pw.Table(
+                  columnWidths: {
+                    0: const pw.FixedColumnWidth(300),
+                    1: const pw.FixedColumnWidth(20),
+                    2: const pw.IntrinsicColumnWidth(),
+                  },
+                  defaultVerticalAlignment: pw.TableCellVerticalAlignment.bottom,
+                  children: [
+                    pw.TableRow(
+                      children: [
+                        pw.Container(
+                          height: 15, 
+                          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide()))
+                        ),
+                        pw.SizedBox(),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(bottom: 2), 
+                          child: pw.Text('Ciente em: ___/___/______', style: pw.TextStyle(fontSize: 10))
+                        ),
+                      ]
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Container(
+                           padding: const pw.EdgeInsets.only(top: 2),
+                           alignment: pw.Alignment.center,
+                           child: pw.Text('Empregado', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))
+                        ),
+                        pw.SizedBox(),
+                        pw.SizedBox(),
+                      ]
+                    )
+                  ]
+                )
+              ),
+              
+              pw.SizedBox(height: 20),
+            ],
+          );
+        },
+      ),
+    );
   }
  
   Future<void> buildAnexoV(pw.Document pdf, Employee employee, Evaluation? evaluation, List<Map<String, dynamic>> questions, int cycle, {CommissionPresident? president}) async {
