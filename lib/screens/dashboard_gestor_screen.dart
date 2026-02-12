@@ -30,6 +30,7 @@ class DashboardGestorScreen extends StatefulWidget {
 class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final Set<String> _selectedEvaluations = {};
+  String _statusFilter = 'Todos'; // New Filter
 
   @override
   Widget build(BuildContext context) {
@@ -157,6 +158,28 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
                     },
                   ),
                   
+                  // Status Filter Dropdown
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: DropdownButtonFormField<String>(
+                      value: _statusFilter,
+                      decoration: InputDecoration(
+                        labelText: 'Filtrar por Status',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'Todos', child: Text('Todos')),
+                        DropdownMenuItem(value: 'aguardando_comissao', child: Text('❗ Aguardando Comissão', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+                        DropdownMenuItem(value: 'concluida', child: Text('Concluída')),
+                        DropdownMenuItem(value: 'pendente', child: Text('Em Andamento / Pendente')),
+                      ],
+                      onChanged: (val) {
+                         if (val != null) setState(() => _statusFilter = val);
+                      },
+                    ),
+                  ),
+
                   Expanded(
                     child: ListView.builder(
                       itemCount: team.length,
@@ -178,12 +201,25 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
                             String status = 'pendente';
                             String? evalId;
                             Map<String, dynamic>? evalData;
+                            bool hasDisciplinary = false;
 
                             if (evalSnapshot.hasData && evalSnapshot.data!.exists) {
                               final evalDoc = evalSnapshot.data!;
                               evalData = evalDoc.data() as Map<String, dynamic>;
                               status = evalData['status'] ?? 'pendente';
                               evalId = evalDoc.id;
+                              
+                              if (status == 'aguardando_comissao' || (evalData['pdfData'] != null && evalData['pdfData']['ocorrenciaDisciplinar'] == true && status != 'concluida')) {
+                                 hasDisciplinary = true;
+                                 status = 'aguardando_comissao';
+                              }
+                            }
+                            
+                            // Apply Filter
+                            if (_statusFilter != 'Todos') {
+                               if (_statusFilter == 'aguardando_comissao' && !hasDisciplinary) return const SizedBox.shrink();
+                               if (_statusFilter == 'concluida' && (status != 'concluida' || hasDisciplinary)) return const SizedBox.shrink();
+                               if (_statusFilter == 'pendente' && (status == 'concluida' || hasDisciplinary)) return const SizedBox.shrink();
                             }
 
                             final isReadyToSign =
@@ -212,11 +248,25 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
                                         }
                                       : null, // Checkbox visível mas desabilitado
                                 ),
-                                title: Text(employeeData['nome'] ?? 'Sem Nome'),
+                                title: Row(
+                                  children: [
+                                    Expanded(child: Text(employeeData['nome'] ?? 'Sem Nome')),
+                                    if (hasDisciplinary)
+                                       const Tooltip(
+                                          message: 'Aguardando entrega de prova física à comissão',
+                                          child: Icon(Icons.flag, color: Colors.red),
+                                       )
+                                  ],
+                                ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Status: ${status.toUpperCase()}'),
+                                    if (hasDisciplinary)
+                                        const Text(
+                                          'Pendência: Entregar prova física à Comissão.',
+                                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
                                     if (evalData != null && evalData['updatedAt'] != null)
                                       Text(
                                         'Data de Avaliação: ${DateFormat('dd/MM/yyyy').format((evalData['updatedAt'] as Timestamp).toDate())}',

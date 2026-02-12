@@ -170,11 +170,17 @@ class _FormularioAvaliacaoScreenState
           );
 
           if (choice == 'EDIT') {
-            newData = await showDialog<Map<String, dynamic>>(
+            final dialogResult = await showDialog<Map<String, dynamic>>(
               context: context,
               builder: (ctx) => PdfHeaderDialog(initialData: _pdfData),
             );
-            if (newData != null) needsSave = true;
+            if (dialogResult != null) {
+               // Merge: Start with existing data, overwrite with dialog result
+               // This preserves 'ocorrenciaDisciplinar' which is not in dialogResult
+               newData = Map<String, dynamic>.from(_pdfData ?? {});
+               newData!.addAll(dialogResult);
+               needsSave = true;
+            }
           }
         } else {
           // Obrigatório preencher
@@ -936,6 +942,8 @@ class _FormularioAvaliacaoScreenState
 
                     const SizedBox(height: 24),
 
+                    _buildDisciplinaryOption(),
+
                     // Campo de observações
                     const Text(
                       'Observações (opcional):',
@@ -1119,6 +1127,56 @@ class _FormularioAvaliacaoScreenState
 
     return widgets;
   }
+  
+  // Widget for Disciplinary Occurrence (Manager Only)
+ Widget _buildDisciplinaryOption() {
+    if (widget.isAutoavaliacao) return const SizedBox.shrink();
+
+    bool currentVal = _pdfData?['ocorrenciaDisciplinar'] ?? false;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        border: Border.all(color: Colors.red.shade200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ocorrência Disciplinar',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'O empregado possui alguma ocorrência disciplinar neste período?',
+            style: TextStyle(fontSize: 14),
+          ),
+          SwitchListTile(
+            title: const Text('Sim, possui ocorrência'),
+            value: currentVal,
+            activeColor: Colors.red,
+            onChanged: _isReadOnly ? null : (val) {
+               setState(() {
+                 if (_pdfData == null) _pdfData = {};
+                 _pdfData!['ocorrenciaDisciplinar'] = val;
+               });
+            },
+          ),
+          if (currentVal)
+             const Padding(
+               padding: EdgeInsets.only(top: 8.0),
+               child: Text(
+                 'Atenção: A avaliação ficará pendente ("Aguardando Comissão") até a entrega da prova física.',
+                 style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+               ),
+             )
+        ],
+      ),
+    );
+  }
 
   Widget _buildPergunta(String key, String pergunta) {
     return Container(
@@ -1273,8 +1331,15 @@ class _FormularioAvaliacaoScreenState
     // 1. Solicitar Assinatura (apenas se requestSignature for true E não for save without signature)
     String? signatureUrl;
     String status = 'concluida';
-
-    if (widget.allowSaveWithoutSignature) {
+    
+    // Logic for Disciplinary Occurrence
+    bool hasDisciplinary = false;
+    if (!widget.isAutoavaliacao && _pdfData != null && _pdfData!['ocorrenciaDisciplinar'] == true) {
+       hasDisciplinary = true;
+       status = 'aguardando_comissao'; // Pendente de prova física
+    }
+    
+    if (widget.allowSaveWithoutSignature && !hasDisciplinary) { // If disciplinary, force signature always? Or follow allow? Let's assume standard flow.
        status = 'aguardando_assinatura';
        // Skip signature screen
     } else if (widget.requestSignature) {
@@ -1301,6 +1366,11 @@ class _FormularioAvaliacaoScreenState
 
         await storageRef.putData(signatureBytes);
         signatureUrl = await storageRef.getDownloadURL();
+    }
+    
+    // If disciplinary, override status even if signed
+    if (hasDisciplinary) {
+      status = 'aguardando_comissao';
     }
 
     try {
@@ -1355,6 +1425,7 @@ class _FormularioAvaliacaoScreenState
         'employeeSnapshot': employeeSnapshot,
         'createdAt': FieldValue.serverTimestamp(),
         'status': status,
+        'pdfData': _pdfData, // SAVE PDF DATA (Important!)
         'updatedAt': FieldValue.serverTimestamp(),
         'employeeId': widget.chapa, // Adicionando employeeId para busca correta no Dashboard
       }, SetOptions(merge: true));
@@ -1367,14 +1438,16 @@ class _FormularioAvaliacaoScreenState
            debugPrint('Erro ao tocar som: $e');
         }
 
-        // Mostrar mensagem de sucesso
+        // Mostrar mensagem de sucesso (Personalizada)
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+           SnackBar(
             content: Text(
-              'Avaliação salva com sucesso!',
+              hasDisciplinary 
+                ? 'Avaliação salva. Aguardando entrega de prova física à comissão.' 
+                : 'Avaliação salva com sucesso!',
             ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+            backgroundColor: hasDisciplinary ? Colors.orange : Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
         

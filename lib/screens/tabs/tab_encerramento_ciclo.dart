@@ -35,15 +35,11 @@ import '../../widgets/expandable_filter_section.dart';
 
 
 class TabEncerramentoCiclo extends StatefulWidget {
-
-  const TabEncerramentoCiclo({super.key});
-
-
+  final String? initialSearch;
+  const TabEncerramentoCiclo({super.key, this.initialSearch});
 
   @override
-
   State<TabEncerramentoCiclo> createState() => _TabEncerramentoCicloState();
-
 }
 
 
@@ -266,18 +262,26 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
 
 
 
+         // Check for pending disciplinary
+         bool pending = false;
+         for (var ev in empEvaluations) {
+            if (ev.status == 'aguardando_comissao') {
+               pending = true;
+               break;
+            }
+            // Also check pdfData just in case status wasn't updated but flag is there (safety)
+            if (ev.pdfData != null && ev.pdfData!['ocorrenciaDisciplinar'] == true && ev.status != 'concluida') {
+               pending = true;
+            }
+         }
+
          processedData.add(EmployeeCycleData(
-
            employee: emp,
-
            average: avg,
-
            scores: scores,
-
            cycleYears: cycleYears,
-
            evaluations: empEvaluations,
-
+           hasPendingDisciplinary: pending,
          ));
 
       }
@@ -874,11 +878,18 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
                                        flex: 3,
 
                                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-                                          Text(data.employee.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
-
+                                          Row(
+                                            children: [
+                                              Expanded(child: Text(data.employee.nome, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                              if (data.hasPendingDisciplinary)
+                                                 IconButton(
+                                                   icon: const Icon(Icons.flag, color: Colors.red),
+                                                   tooltip: 'Ocorrência Disciplinar Pendente (Clique para resolver)',
+                                                   onPressed: () => _confirmarProvaFisica(data.employee, data.evaluations),
+                                                 )
+                                            ],
+                                          ),
                                           Text('${data.employee.id} • ${data.employee.funcao}', style: const TextStyle(fontSize: 12, color: Colors.grey))
-
                                        ])
 
                                     ),
@@ -943,25 +954,96 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
 
   }
 
+  Future<void> _confirmarProvaFisica(Employee emp, List<Evaluation> evals) async {
+     // Intro Dialog
+     final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+           title: const Text('Confirmar Prova Física'),
+           content: Column(
+             mainAxisSize: MainAxisSize.min,
+             children: [
+                const Icon(Icons.warning, color: Colors.orange, size: 48),
+                const SizedBox(height: 16),
+                Text('O funcionário ${emp.nome} possui Ocorrência Disciplinar sinalizada.'),
+                const SizedBox(height: 8),
+                const Text('Confirma que a PROVA FÍSICA foi entregue à comissão?'),
+                const SizedBox(height: 8),
+                const Text('Isso liberará a nota e concluirá a avaliação.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+             ],
+           ),
+           actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+              ElevatedButton(
+                 onPressed: () => Navigator.pop(ctx, true),
+                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                 child: const Text('Confirmar Entrega'),
+              )
+           ],
+        )
+     );
+
+     if (confirm != true) return;
+
+     setState(() => _isLoading = true);
+
+     try {
+        final batch = _firestore.batch();
+        int count = 0;
+
+        for (var ev in evals) {
+           if (ev.status == 'aguardando_comissao' || (ev.pdfData != null && ev.pdfData!['ocorrenciaDisciplinar'] == true && ev.status != 'concluida')) {
+              final ref = _firestore.collection('evaluations').doc(ev.id);
+              batch.update(ref, {
+                 'status': 'concluida', 
+                 'waitingCommissionProof': false, // Check flag
+                 'updatedAt': FieldValue.serverTimestamp()
+              });
+              count++;
+           }
+        }
+
+        if (count > 0) {
+           await batch.commit();
+           await _loadCycleData(); // Reload to update UI
+           
+           if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Status atualizado! $count avaliações concluídas.')));
+           }
+        } else {
+           if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma avaliação pendente encontrada para atualizar.')));
+           }
+        }
+
+     } catch (e) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao atualizar: $e')));
+        }
+     } finally {
+        setState(() => _isLoading = false);
+     }
+  }
+
 }
 
 
 
 class EmployeeCycleData {
-
   final Employee employee;
-
   final double average;
-
   final Map<int, double?> scores;
-
   final List<int> cycleYears;
-
   final List<Evaluation> evaluations;
+  final bool hasPendingDisciplinary; // New field
 
-
-
-  EmployeeCycleData({required this.employee, required this.average, required this.scores, required this.cycleYears, required this.evaluations});
-
+  EmployeeCycleData({
+    required this.employee, 
+    required this.average, 
+    required this.scores, 
+    required this.cycleYears, 
+    required this.evaluations,
+    this.hasPendingDisciplinary = false,
+  });
 }
 

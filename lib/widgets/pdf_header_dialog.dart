@@ -11,7 +11,7 @@ class PdfHeaderDialog extends StatefulWidget {
 
 class _PdfHeaderDialogState extends State<PdfHeaderDialog> {
   late String _tipo;
-  late bool _ocorrencia;
+  // late bool _ocorrencia;
   late bool _comissionado;
   late bool _disponibilidade;
   late bool _desvio;
@@ -23,7 +23,7 @@ class _PdfHeaderDialogState extends State<PdfHeaderDialog> {
     super.initState();
     final data = widget.initialData ?? {};
     _tipo = data['tipoAvaliacao'] ?? 'ADO';
-    _ocorrencia = data['ocorrenciaDisciplinar'] ?? false;
+    // _ocorrencia removed
     _comissionado = data['empregoComissionado'] ?? false;
     _disponibilidade = data['disponibilidade'] ?? false;
     _desvio = data['desvioFuncao'] ?? false;
@@ -67,30 +67,9 @@ class _PdfHeaderDialogState extends State<PdfHeaderDialog> {
               ],
             ),
             const Divider(),
-            const Text('Ocorrência Disciplinar:', style: TextStyle(fontWeight: FontWeight.bold)),
-             Row(
-              children: [
-                Expanded(
-                  child: RadioListTile<bool>(
-                    title: const Text('Sim'),
-                    value: true,
-                    groupValue: _ocorrencia,
-                    onChanged: (v) => setState(() => _ocorrencia = v!),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-                Expanded(
-                  child: RadioListTile<bool>(
-                    title: const Text('Não'),
-                    value: false,
-                    groupValue: _ocorrencia,
-                    onChanged: (v) => setState(() => _ocorrencia = v!),
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ],
-            ),
             const Divider(),
+            // Ocorrência Disciplinar removed from here (Created by Manager at end of form)
+            
             SwitchListTile(
               title: const Text('Emprego Comissionado'),
               value: _comissionado,
@@ -153,7 +132,7 @@ class _PdfHeaderDialogState extends State<PdfHeaderDialog> {
           onPressed: () {
             Navigator.pop(context, {
                'tipoAvaliacao': _tipo,
-               'ocorrenciaDisciplinar': _ocorrencia,
+               // 'ocorrenciaDisciplinar': _ocorrencia, // Removed
                'empregoComissionado': _comissionado,
                'disponibilidade': _disponibilidade,
                'desvioFuncao': _desvio,
