@@ -232,16 +232,24 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
                  score = manual.manualScore;
                  bestEval = manual;
                } else {
-                 // Calculate from answers
-                 // Prefer Gestor
-                 final gestor = yearlyEvals.where((e) => e.id.endsWith('_GESTOR')).firstOrNull;
-                 final target = gestor ?? yearlyEvals.first;
-                 bestEval = target;
+                 // Formula = (total_auto + total_gestor) / 2
+                 // If one is missing, its total = 0 (like Anexo III)
+                 final autoEval = yearlyEvals.where((e) => e.id.contains('_AUTO')).firstOrNull;
+                 final gestorEval = yearlyEvals.where((e) => e.id.contains('_GESTOR')).firstOrNull;
                  
-                 // Calc Sum
-                 double total = 0;
-                 target.answers.forEach((k, v) => total += v);
-                 score = total;
+                 double autoTotal = 0;
+                 if (autoEval != null) {
+                   autoEval.answers.forEach((k, v) => autoTotal += v);
+                 }
+                 
+                 double gestorTotal = 0;
+                 if (gestorEval != null) {
+                   gestorEval.answers.forEach((k, v) => gestorTotal += v);
+                 }
+                 
+                 // Always divide by 2 (auto + gestor), matching Anexo III
+                 score = (autoTotal + gestorTotal) / 2;
+                 bestEval = gestorEval ?? autoEval;
                }
             }
             
@@ -342,17 +350,18 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
         if (_filtrosTipo.isNotEmpty && !_filtrosTipo.contains(tipo)) return false;
 
         // Status (PENDENCIA / CONCLUIDA)
-        // PENDENTE = tem ocorrencia aguardando comissao 
-        // CONCLUIDA = NÃO tem ocorrencia aguardando E tem a avaliação do ano corrente concluída
+        // PENDENTE = tem ocorrencia aguardando comissao
+        // CONCLUIDA = tem avaliação com nota para o ano de referência E sem pendência disciplinar
         if (_filtrosStatus.isNotEmpty) {
            bool match = false;
            if (_filtrosStatus.contains('PENDENTE') && data.hasPendingDisciplinary) {
                match = true;
            }
            if (_filtrosStatus.contains('CONCLUIDA') && !data.hasPendingDisciplinary) {
-               // Check if there is a completed evaluation for the CURRENT _referenceYear
-               final hasCurrentYearCompleted = data.evaluations.any((e) => e.year == _referenceYear && e.status == 'concluida');
-               if (hasCurrentYearCompleted) {
+               // Concluída = tem avaliação com nota para o ano corrente
+               // (não requer status='concluida' explícito pois avaliações antigas não têm esse campo)
+               final hasCurrentYearEval = data.evaluations.any((e) => e.year == _referenceYear);
+               if (hasCurrentYearEval) {
                    match = true;
                }
            }
