@@ -172,21 +172,27 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
       
 
       final List<Evaluation> allEvaluations = [];
+      final Set<String> loadedDocIds = {};
 
       for (var year in yearsToFetch) {
+        // Query by 'year' int field (old/imported evals)
+        final snap1 = await _firestore.collection('evaluations').where('year', isEqualTo: year).get();
+        // Query by 'ano' string field (evals saved by the app)
+        final snap2 = await _firestore.collection('evaluations').where('ano', isEqualTo: year.toString()).get();
+        // Query by 'ciclo' string field (alternate app format)
+        final snap3 = await _firestore.collection('evaluations').where('ciclo', isEqualTo: year.toString()).get();
 
-        final snap = await _firestore.collection('evaluations').where('year', isEqualTo: year).get();
-
-        allEvaluations.addAll(snap.docs.map((d) {
-
-           final data = d.data();
-
-           data['id'] = d.id;
-
-           return Evaluation.fromFirestore(data);
-
-        }));
-
+        for (final snap in [snap1, snap2, snap3]) {
+          for (final d in snap.docs) {
+            if (loadedDocIds.contains(d.id)) continue; // Deduplicate
+            loadedDocIds.add(d.id);
+            final data = d.data();
+            data['id'] = d.id;
+            // Ensure year is set correctly (some docs might not have 'year')
+            data['year'] ??= year;
+            allEvaluations.add(Evaluation.fromFirestore(data));
+          }
+        }
       }
 
 
@@ -336,11 +342,20 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
         if (_filtrosTipo.isNotEmpty && !_filtrosTipo.contains(tipo)) return false;
 
         // Status (PENDENCIA / CONCLUIDA)
-        // Note: data.hasPendingDisciplinary covers 'aguardando_comissao'
+        // PENDENTE = tem ocorrencia aguardando comissao 
+        // CONCLUIDA = NÃO tem ocorrencia aguardando E tem a avaliação do ano corrente concluída
         if (_filtrosStatus.isNotEmpty) {
            bool match = false;
-           if (_filtrosStatus.contains('PENDENTE') && data.hasPendingDisciplinary) match = true;
-           if (_filtrosStatus.contains('CONCLUIDA') && !data.hasPendingDisciplinary) match = true;
+           if (_filtrosStatus.contains('PENDENTE') && data.hasPendingDisciplinary) {
+               match = true;
+           }
+           if (_filtrosStatus.contains('CONCLUIDA') && !data.hasPendingDisciplinary) {
+               // Check if there is a completed evaluation for the CURRENT _referenceYear
+               final hasCurrentYearCompleted = data.evaluations.any((e) => e.year == _referenceYear && e.status == 'concluida');
+               if (hasCurrentYearCompleted) {
+                   match = true;
+               }
+           }
            if (!match) return false;
         }
 
@@ -650,90 +665,69 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
                    const SizedBox(height: 12),
 
                    // Advanced Filters
+                   SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          IntrinsicWidth(
+                            child: ExpandableFilterSection(
+                               title: 'Média do Triênio',
+                               count: _filtrosMedia.length,
+                               child: Wrap(spacing: 8, children: [
+                                  FilterChip(label: const Text('Ótimo (>70)'), selected: _filtrosMedia.contains('High'), onSelected: (s) { setState(() { s ? _filtrosMedia.add('High') : _filtrosMedia.remove('High'); _applyFilters(); }); }),
+                                  FilterChip(label: const Text('Médio (50-70)'), selected: _filtrosMedia.contains('Med'), onSelected: (s) { setState(() { s ? _filtrosMedia.add('Med') : _filtrosMedia.remove('Med'); _applyFilters(); }); }),
+                                  FilterChip(label: const Text('Baixo (20-50)'), selected: _filtrosMedia.contains('Low'), onSelected: (s) { setState(() { s ? _filtrosMedia.add('Low') : _filtrosMedia.remove('Low'); _applyFilters(); }); }),
+                                  FilterChip(label: const Text('Crítico (<20)'), selected: _filtrosMedia.contains('Critical'), onSelected: (s) { setState(() { s ? _filtrosMedia.add('Critical') : _filtrosMedia.remove('Critical'); _applyFilters(); }); }),
+                               ])
+                            ),
+                          ),
+                          const SizedBox(width: 8),
 
-                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          // Situacao
+                          IntrinsicWidth(
+                            child: ExpandableFilterSection(
+                              title: 'Situação',
+                              count: _filtrosSituacao.length,
+                              child: MultiSituacaoFilter(selectedSituacoes: _filtrosSituacao, availableSituacoes: _availableSituacoes.toSet(), onChanged: (v) { setState(() => _filtrosSituacao = v); _applyFilters(); })
+                            ),
+                          ),
 
-                      Expanded(
+                           const SizedBox(width: 8),
 
-                         child: ExpandableFilterSection(
+                           // Tipo
+                           IntrinsicWidth(
+                             child: ExpandableFilterSection(
+                               title: 'Tipo',
+                               count: _filtrosTipo.length,
+                               child: MultiTipoFilter(selectedTipos: _filtrosTipo, availableTipos: _availableTipos.toSet(), onChanged: (v) { setState(() => _filtrosTipo = v); _applyFilters(); })
+                             ),
+                          ),
+                          const SizedBox(width: 8),
 
-                            title: 'Média do Triênio',
-
-                            count: _filtrosMedia.length,
-
-                            child: Wrap(spacing: 8, children: [
-
-                               FilterChip(label: const Text('Ótimo (>70)'), selected: _filtrosMedia.contains('High'), onSelected: (s) { setState(() { s ? _filtrosMedia.add('High') : _filtrosMedia.remove('High'); _applyFilters(); }); }),
-
-                               FilterChip(label: const Text('Médio (50-70)'), selected: _filtrosMedia.contains('Med'), onSelected: (s) { setState(() { s ? _filtrosMedia.add('Med') : _filtrosMedia.remove('Med'); _applyFilters(); }); }),
-
-                               FilterChip(label: const Text('Baixo (20-50)'), selected: _filtrosMedia.contains('Low'), onSelected: (s) { setState(() { s ? _filtrosMedia.add('Low') : _filtrosMedia.remove('Low'); _applyFilters(); }); }),
-
-                               FilterChip(label: const Text('Crítico (<20)'), selected: _filtrosMedia.contains('Critical'), onSelected: (s) { setState(() { s ? _filtrosMedia.add('Critical') : _filtrosMedia.remove('Critical'); _applyFilters(); }); }),
-
-                            ])
-
-                         )
-
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      // Situacao
-
-                      Expanded(
-
-                         child: ExpandableFilterSection(
-
-                           title: 'Situação',
-
-                           count: _filtrosSituacao.length,
-
-                           child: MultiSituacaoFilter(selectedSituacoes: _filtrosSituacao, availableSituacoes: _availableSituacoes.toSet(), onChanged: (v) { setState(() => _filtrosSituacao = v); _applyFilters(); })
-
-                         )
-
-                      ),
-
-                       const SizedBox(width: 8),
-
-                       // Tipo
-
-                       Expanded(
-                         child: ExpandableFilterSection(
-                           title: 'Tipo',
-                           count: _filtrosTipo.length,
-                           child: MultiTipoFilter(selectedTipos: _filtrosTipo, availableTipos: _availableTipos.toSet(), onChanged: (v) { setState(() => _filtrosTipo = v); _applyFilters(); })
-                         )
-                      ),
-                      const SizedBox(width: 8),
-                      // Status
-                      Expanded(
-                         child: ExpandableFilterSection(
-                           title: 'Status',
-                           count: _filtrosStatus.length,
-                           child: Wrap(spacing: 8, children: [
-                              FilterChip(
-                                label: const Text('Pendência (Comissão)'), 
-                                selected: _filtrosStatus.contains('PENDENTE'), 
-                                avatar: const Icon(Icons.flag, size: 16, color: Colors.red),
-                                onSelected: (s) { setState(() { s ? _filtrosStatus.add('PENDENTE') : _filtrosStatus.remove('PENDENTE'); _applyFilters(); }); }
-                              ),
-                              FilterChip(
-                                label: const Text('Concluída'), 
-                                selected: _filtrosStatus.contains('CONCLUIDA'), 
-                                onSelected: (s) { setState(() { s ? _filtrosStatus.add('CONCLUIDA') : _filtrosStatus.remove('CONCLUIDA'); _applyFilters(); }); }
-                              ),
-                           ])
-                         )
-                      )
-
-                   ])
-
+                          // Status
+                          IntrinsicWidth(
+                             child: ExpandableFilterSection(
+                               title: 'Status',
+                               count: _filtrosStatus.length,
+                               child: Wrap(spacing: 8, children: [
+                                  FilterChip(
+                                    label: const Text('Pendência (Comissão)'), 
+                                    selected: _filtrosStatus.contains('PENDENTE'), 
+                                    avatar: const Icon(Icons.flag, size: 16, color: Colors.red),
+                                    onSelected: (s) { setState(() { s ? _filtrosStatus.add('PENDENTE') : _filtrosStatus.remove('PENDENTE'); _applyFilters(); }); }
+                                  ),
+                                  FilterChip(
+                                    label: const Text('Concluída'), 
+                                    selected: _filtrosStatus.contains('CONCLUIDA'), 
+                                    avatar: const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                                    onSelected: (s) { setState(() { s ? _filtrosStatus.add('CONCLUIDA') : _filtrosStatus.remove('CONCLUIDA'); _applyFilters(); }); }
+                                  ),
+                               ])
+                             ),
+                          )
+                       ]),
+                   )
                 ]
-
              )
-
           ),
 
 

@@ -1336,12 +1336,12 @@ class _FormularioAvaliacaoScreenState
     bool hasDisciplinary = false;
     if (!widget.isAutoavaliacao && _pdfData != null && _pdfData!['ocorrenciaDisciplinar'] == true) {
        hasDisciplinary = true;
-       status = 'aguardando_comissao'; // Pendente de prova física
+       status = 'aguardando_comissao'; // Pendente de prova física (status final se for assinado)
     }
     
-    if (widget.allowSaveWithoutSignature && !hasDisciplinary) { // If disciplinary, force signature always? Or follow allow? Let's assume standard flow.
+    if (widget.allowSaveWithoutSignature) { 
        status = 'aguardando_assinatura';
-       // Skip signature screen
+       // Skip signature screen locally, it will be signed later in batch
     } else if (widget.requestSignature) {
       final signatureBytes = await Navigator.push<Uint8List>(
         context,
@@ -1368,8 +1368,9 @@ class _FormularioAvaliacaoScreenState
         signatureUrl = await storageRef.getDownloadURL();
     }
     
-    // If disciplinary, override status even if signed
-    if (hasDisciplinary) {
+    // If disciplinary AND it was signed in this flow (not skipped), or it's standard without skip, we need to enforce aguardando_comissao.
+    // If we skipped signature (allowSaveWithoutSignature), status remains 'aguardando_assinatura'.
+    if (hasDisciplinary && !widget.allowSaveWithoutSignature) {
       status = 'aguardando_comissao';
     }
 

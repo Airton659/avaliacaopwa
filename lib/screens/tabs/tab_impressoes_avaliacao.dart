@@ -181,7 +181,10 @@ class _TabImpressoesAvaliacaoState extends State<TabImpressoesAvaliacao> {
          bool matchStatus = false;
          final bool hasPendingDisciplinary = (gestorData != null && 
              (gestorData['status'] == 'aguardando_comissao' || 
-              (gestorData['pdfData'] != null && gestorData['pdfData']['ocorrenciaDisciplinar'] == true && gestorData['status'] != 'concluida')
+              (gestorData['pdfData'] != null && 
+               gestorData['pdfData']['ocorrenciaDisciplinar'] == true && 
+               gestorData['status'] != 'concluida' && 
+               gestorData['status'] != 'aguardando_assinatura')
              ));
 
          if (_statusFilter == 'aguardando_comissao') {
@@ -545,49 +548,52 @@ class _TabImpressoesAvaliacaoState extends State<TabImpressoesAvaliacao> {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: FutureBuilder<List<String>>(
-                      future: _getAvailableSituacoes(),
-                      builder: (context, snapshot) {
-                        final situacoes = snapshot.data ?? [];
-                        if (situacoes.isEmpty) return const SizedBox.shrink();
-                        
-                        return ExpandableFilterSection(
-                          title: 'Filtrar por Situação',
-                          count: _filtrosSituacao.length,
-                          child: MultiSituacaoFilter(
-                            selectedSituacoes: _filtrosSituacao,
-                            availableSituacoes: situacoes.toSet(),
-                            onChanged: (newSelection) => setState(() => _filtrosSituacao = newSelection),
-                          ),
-                        );
-                      },
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    IntrinsicWidth(
+                      child: FutureBuilder<List<String>>(
+                        future: _getAvailableSituacoes(),
+                        builder: (context, snapshot) {
+                          final situacoes = snapshot.data ?? [];
+                          if (situacoes.isEmpty) return const SizedBox.shrink();
+                          
+                          return ExpandableFilterSection(
+                            title: 'Filtrar por Situação',
+                            count: _filtrosSituacao.length,
+                            child: MultiSituacaoFilter(
+                              selectedSituacoes: _filtrosSituacao,
+                              availableSituacoes: situacoes.toSet(),
+                              onChanged: (newSelection) => setState(() => _filtrosSituacao = newSelection),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: FutureBuilder<List<String>>(
-                      future: _getAvailableTipos(),
-                      builder: (context, snapshot) {
-                        final tipos = snapshot.data ?? [];
-                        if (tipos.isEmpty) return const SizedBox.shrink();
-
-                        return ExpandableFilterSection(
-                          title: 'Filtrar por Tipo',
-                          count: _filtrosTipo.length,
-                          child: MultiTipoFilter(
-                            selectedTipos: _filtrosTipo,
-                            availableTipos: tipos.toSet(),
-                            onChanged: (newSelection) => setState(() => _filtrosTipo = newSelection),
-                          ),
-                        );
-                      },
+                    const SizedBox(width: 16),
+                    IntrinsicWidth(
+                      child: FutureBuilder<List<String>>(
+                        future: _getAvailableTipos(),
+                        builder: (context, snapshot) {
+                          final tipos = snapshot.data ?? [];
+                          if (tipos.isEmpty) return const SizedBox.shrink();
+  
+                          return ExpandableFilterSection(
+                            title: 'Filtrar por Tipo',
+                            count: _filtrosTipo.length,
+                            child: MultiTipoFilter(
+                              selectedTipos: _filtrosTipo,
+                              availableTipos: tipos.toSet(),
+                              onChanged: (newSelection) => setState(() => _filtrosTipo = newSelection),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               CheckboxListTile(
@@ -736,7 +742,8 @@ class _TabImpressoesAvaliacaoState extends State<TabImpressoesAvaliacao> {
                               (employeeData.gestorEvaluation?['status'] == 'aguardando_comissao' || 
                                (employeeData.gestorEvaluation?['pdfData'] != null && 
                                 employeeData.gestorEvaluation?['pdfData']['ocorrenciaDisciplinar'] == true &&
-                                employeeData.gestorEvaluation?['status'] != 'concluida')))
+                                employeeData.gestorEvaluation?['status'] != 'concluida' && 
+                                employeeData.gestorEvaluation?['status'] != 'aguardando_assinatura')))
                                    Padding(
                                      padding: const EdgeInsets.only(right: 8.0),
                                      child: IconButton(

@@ -40,25 +40,47 @@ class EmployeeWithEvaluations {
   
   /// Retorna a cor do badge de status
   String get statusColor {
+    final auto = autoEvaluation?['status'];
+    final gestor = gestorEvaluation?['status'];
+
+    if (auto == 'aguardando_assinatura' || gestor == 'aguardando_assinatura') {
+      return 'orange'; // Or some other specific color if preferred
+    }
+
+    if (gestor == 'aguardando_comissao' || (gestorEvaluation != null && gestorEvaluation!['pdfData'] != null && gestorEvaluation!['pdfData']['ocorrenciaDisciplinar'] == true && gestor != 'concluida')) {
+      return 'red';
+    }
+
     switch (evaluationStatus) {
       case 'concluida':
         return 'green';
       case 'parcial':
         return 'orange';
       default:
-        return 'red';
+        return 'red'; // Note: Pendente without evaluations is usually red or orange depending on design
     }
   }
   
   /// Retorna o label do status
   String get statusLabel {
+    final auto = autoEvaluation?['status'];
+    final gestor = gestorEvaluation?['status'];
+
+    if (auto == 'aguardando_assinatura' || gestor == 'aguardando_assinatura') {
+      return 'AGUARDANDO ASSINATURA';
+    }
+
+    if (gestor == 'aguardando_comissao' || (gestorEvaluation != null && gestorEvaluation!['pdfData'] != null && gestorEvaluation!['pdfData']['ocorrenciaDisciplinar'] == true && gestor != 'concluida')) {
+      return 'AGUARDANDO COMISSAO';
+    }
+
     switch (evaluationStatus) {
       case 'concluida':
-        return 'Concluído';
+        return 'CONCLUÍDO';
       case 'parcial':
-        return 'Parcial';
+        return 'PARCIAL';
       default:
-        return 'Pendente';
+        return 'PENDENTE';
     }
   }
 }

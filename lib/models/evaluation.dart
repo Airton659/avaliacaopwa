@@ -12,6 +12,7 @@ class Evaluation {
   final DateTime createdAt;
   final String? signatureUrl;
   final Map<String, dynamic>? pdfData; // Stores persistent PDF headers (Tipo, Ocorrencia, etc.)
+  final String? status;
 
   // Immutable Commission President Data (Snapshot on Conclusion)
   final String? commissionPresidentName;
@@ -39,6 +40,7 @@ class Evaluation {
     this.commissionPresidentMetadata,
     this.manualScore,
     this.specialStatus,
+    this.status,
   }) : createdAt = createdAt ?? DateTime.now();
 
   static String generateId(int year, String employeeId, EvaluationType type) {
@@ -76,6 +78,7 @@ class Evaluation {
       'commissionPresidentMetadata': commissionPresidentMetadata,
       'manualScore': manualScore,
       'specialStatus': specialStatus,
+      'status': status,
     };
   }
 
@@ -131,6 +134,7 @@ class Evaluation {
       commissionPresidentMetadata: data['commissionPresidentMetadata'] as Map<String, dynamic>?,
       manualScore: (data['manualScore'] as num?)?.toDouble(),
       specialStatus: data['specialStatus'] as String?,
+      status: data['status'] as String?,
     );
   }
 }

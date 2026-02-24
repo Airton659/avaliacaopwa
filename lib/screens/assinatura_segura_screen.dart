@@ -181,8 +181,18 @@ class _AssinaturaSeguraScreenState extends State<AssinaturaSeguraScreen> {
       for (final evalId in widget.evaluationIds) {
         final docRef = FirebaseFirestore.instance.collection('evaluations').doc(evalId);
         
+        // Read current document to check for disciplinary occurrence
+        final currentDoc = await docRef.get();
+        final currentData = currentDoc.data() ?? {};
+        final pdfData = currentData['pdfData'] as Map<String, dynamic>?;
+        final hasDisciplinary = pdfData != null && pdfData['ocorrenciaDisciplinar'] == true;
+        
+        // If disciplinary, status must go to 'aguardando_comissao' (waiting for physical proof)
+        // Only 'concluida' if no disciplinary occurrence
+        final newStatus = hasDisciplinary ? 'aguardando_comissao' : 'concluida';
+        
         final Map<String, dynamic> updateData = {
-          'status': 'concluida',
+          'status': newStatus,
           'signatureUrl': signatureUrl, // Assinatura Gestor
           'managerPhotoUrl': photoUrl,
           'managerSignatureMetadata': metadata,

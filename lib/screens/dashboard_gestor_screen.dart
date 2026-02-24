@@ -8,6 +8,7 @@ import '../utils/password_helper.dart';
 import 'trocar_senha_screen.dart';
 import 'signature_registration_screen.dart';
 import 'central_ciclos_screen.dart';
+import 'central_impressao_screen.dart';
 
 class DashboardGestorScreen extends StatefulWidget {
   final String userMatricula;
@@ -209,8 +210,15 @@ class _DashboardGestorScreenState extends State<DashboardGestorScreen> {
                               status = evalData['status'] ?? 'pendente';
                               evalId = evalDoc.id;
                               
-                              if (status == 'aguardando_comissao' || (evalData['pdfData'] != null && evalData['pdfData']['ocorrenciaDisciplinar'] == true && status != 'concluida')) {
+                              // Check if it has Disciplinary Occurrence that is NOT yet resolved
+                              if (evalData['pdfData'] != null && 
+                                  evalData['pdfData']['ocorrenciaDisciplinar'] == true &&
+                                  status != 'concluida') {
                                  hasDisciplinary = true;
+                              }
+
+                              // Only override status IF it's not pending signature. If it's aguardando_assinatura, let it be.
+                              if (hasDisciplinary && status != 'aguardando_assinatura' && status != 'concluida') {
                                  status = 'aguardando_comissao';
                               }
                             }
