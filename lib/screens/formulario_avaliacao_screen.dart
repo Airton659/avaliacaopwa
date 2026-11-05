@@ -1573,7 +1573,7 @@ class _FormularioAvaliacaoScreenState
 
     try {
       if (dataAdmissao is Timestamp) {
-        final DateTime dateTime = dataAdmissao.toDate();
+        final DateTime dateTime = dataAdmissao.toDate().toUtc();
         return DateFormat('dd/MM/yyyy').format(dateTime);
       } else if (dataAdmissao is String) {
         return dataAdmissao;

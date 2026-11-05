@@ -64,7 +64,7 @@ class Employee {
     // Helper to format Timestamp
     String formatTimestamp(dynamic val) {
       if (val is Timestamp) {
-        final dt = val.toDate();
+        final dt = val.toDate().toUtc();
         return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
       }
       return val?.toString() ?? '';
