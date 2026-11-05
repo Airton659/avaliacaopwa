@@ -70,9 +70,7 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
           // Lista de funcionários
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('funcionarios')
-                  .snapshots(),
+              stream: _firestore.collection('funcionarios').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
@@ -115,7 +113,8 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                   employees = employees.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     final nome = (data['nome']?.toString() ?? '').toLowerCase();
-                    final chapa = (data['chapa']?.toString() ?? '').toLowerCase();
+                    final chapa = (data['chapa']?.toString() ?? '')
+                        .toLowerCase();
                     return nome.contains(_searchQuery) ||
                         chapa.contains(_searchQuery);
                   }).toList();
@@ -144,8 +143,11 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.person_off,
-                            size: 80, color: Colors.grey.shade400),
+                        Icon(
+                          Icons.person_off,
+                          size: 80,
+                          color: Colors.grey.shade400,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           _searchQuery.isEmpty
@@ -164,7 +166,8 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                 return Column(
                   children: [
                     // Filtros expansíveis
-                    if (situacoesDisponiveis.isNotEmpty || tiposDisponiveis.isNotEmpty)
+                    if (situacoesDisponiveis.isNotEmpty ||
+                        tiposDisponiveis.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         child: Column(
@@ -227,7 +230,9 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
     final nome = data['nome']?.toString() ?? '';
     final funcao = data['funcao']?.toString() ?? '';
     final nivel = data['nivel']?.toString() ?? '';
-    final situacao = SituacaoHelper.getDescricaoCompleta(data['situacao']?.toString());
+    final situacao = SituacaoHelper.getDescricaoCompleta(
+      data['situacao']?.toString(),
+    );
     final isManager = data['isManager'] ?? false;
 
     return FutureBuilder<Map<String, dynamic>?>(
@@ -243,138 +248,164 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
             onTap: () => _showPasswordDialog(chapa, data),
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor:
-                        isManager ? Colors.blue.shade700 : Colors.grey.shade600,
-                    child: Icon(
-                      isManager ? Icons.supervisor_account : Icons.person,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          nome,
-                          style: const TextStyle(
-                            fontSize: 18, // Reduced slightly to help fit
-                            fontWeight: FontWeight.bold,
-                          ),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: isManager
+                            ? Colors.blue.shade700
+                            : Colors.grey.shade600,
+                        child: Icon(
+                          isManager ? Icons.supervisor_account : Icons.person,
+                          color: Colors.white,
+                          size: 32,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$funcao - Nível $nivel',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                        Text(
-                          'Chapa: $chapa',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          situacao,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.blue.shade700,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (jaAvaliou && avaliacaoData['status'] != null && avaliacaoData['status'] != 'pendente') ...[
-                          const SizedBox(height: 8),
-                          Builder(
-                            builder: (context) {
-                              final status = avaliacaoData['status'];
-                              Color badgeColor;
-                              Color backgroundColor;
-                              IconData icon;
-                              String label;
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              nome,
+                              style: const TextStyle(
+                                fontSize: 18, // Reduced slightly to help fit
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$funcao - Nível $nivel',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            Text(
+                              'Chapa: $chapa',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              situacao,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            if (jaAvaliou &&
+                                avaliacaoData['status'] != null &&
+                                avaliacaoData['status'] != 'pendente') ...[
+                              const SizedBox(height: 8),
+                              Builder(
+                                builder: (context) {
+                                  final status = avaliacaoData['status'];
+                                  Color badgeColor;
+                                  Color backgroundColor;
+                                  IconData icon;
+                                  String label;
 
-                              switch (status) {
-                                case 'em_andamento':
-                                  badgeColor = Colors.orange;
-                                  backgroundColor = Colors.orange.withValues(alpha: 0.1);
-                                  icon = Icons.edit;
-                                  label = 'Em Andamento';
-                                  break;
-                                case 'aguardando_assinatura':
-                                  badgeColor = Colors.blue;
-                                  backgroundColor = Colors.blue.withValues(alpha: 0.1);
-                                  icon = Icons.pending;
-                                  label = 'Aguardando Assinatura';
-                                  break;
-                                case 'concluida':
-                                  badgeColor = Colors.green;
-                                  backgroundColor = Colors.green.withValues(alpha: 0.1);
-                                  icon = Icons.check_circle;
-                                  // Para concluída, mostra data e usuário
-                                  label = avaliacaoData['displayInfo'] ?? 'Concluído';
-                                  break;
-                                default:
-                                  return const SizedBox.shrink();
-                              }
+                                  switch (status) {
+                                    case 'em_andamento':
+                                      badgeColor = Colors.orange;
+                                      backgroundColor = Colors.orange
+                                          .withValues(alpha: 0.1);
+                                      icon = Icons.edit;
+                                      label = 'Em Andamento';
+                                      break;
+                                    case 'aguardando_assinatura':
+                                      badgeColor = Colors.blue;
+                                      backgroundColor = Colors.blue.withValues(
+                                        alpha: 0.1,
+                                      );
+                                      icon = Icons.pending;
+                                      label = 'Aguardando Assinatura';
+                                      break;
+                                    case 'concluida':
+                                      badgeColor = Colors.green;
+                                      backgroundColor = Colors.green.withValues(
+                                        alpha: 0.1,
+                                      );
+                                      icon = Icons.check_circle;
+                                      // Para concluída, mostra data e usuário
+                                      label =
+                                          avaliacaoData['displayInfo'] ??
+                                          'Concluído';
+                                      break;
+                                    default:
+                                      return const SizedBox.shrink();
+                                  }
 
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: backgroundColor,
-                                  border: Border.all(color: badgeColor),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(icon, size: 14, color: badgeColor),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        label,
-                                        style: TextStyle(
-                                          color: badgeColor,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
                                     ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
+                                    decoration: BoxDecoration(
+                                      color: backgroundColor,
+                                      border: Border.all(color: badgeColor),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(icon, size: 14, color: badgeColor),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            label,
+                                            style: TextStyle(
+                                              color: badgeColor,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (!(jaAvaliou &&
+                          avaliacaoData['status'] == 'concluida'))
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.blue,
+                          size: 24,
+                        ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  if (jaAvaliou && avaliacaoData['status'] == 'concluida')
-                  if (jaAvaliou && avaliacaoData['status'] == 'concluida')
+                  if (jaAvaliou && avaliacaoData['status'] == 'concluida') ...[
+                    const SizedBox(height: 12),
                     Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (widget.isComissao)
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: ElevatedButton(
-                              onPressed: () => _confirmarLiberacaoReavaliacao(chapa, data),
+                              onPressed: () =>
+                                  _confirmarLiberacaoReavaliacao(chapa, data),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.orange.shade700,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                                 minimumSize: const Size(0, 36),
                               ),
                               child: const Icon(Icons.restore, size: 18),
@@ -385,19 +416,20 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue.shade700,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             minimumSize: const Size(0, 36),
                           ),
-                          child: const Text('Visualizar', style: TextStyle(fontSize: 13)),
+                          child: const Text(
+                            'Visualizar',
+                            style: TextStyle(fontSize: 13),
+                          ),
                         ),
                       ],
-                    )
-                  else
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.blue,
-                      size: 24,
                     ),
+                  ],
                 ],
               ),
             ),
@@ -409,34 +441,34 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
 
   Future<Map<String, dynamic>?> _getAutoavaliacaoInfo(String chapa) async {
     try {
-      final configDoc = await _firestore.collection('config').doc('general').get();
+      final configDoc = await _firestore
+          .collection('config')
+          .doc('general')
+          .get();
       final cycle = configDoc.data()?['currentCycle'] ?? '2024/2025';
 
       final year = cycle.split('/')[0];
       final docId = '${year}_${chapa}_AUTO';
 
       final doc = await _firestore.collection('evaluations').doc(docId).get();
-      
+
       if (!doc.exists) return null;
 
       final data = doc.data() as Map<String, dynamic>;
-      
+
       // Formatar display info: dd/MM/yyyy - matricula
       String displayInfo = 'Concluído';
-      
+
       if (data['createdAt'] != null && data['authorMatricula'] != null) {
         final timestamp = data['createdAt'] as Timestamp;
         final date = timestamp.toDate();
-        final formattedDate = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+        final formattedDate =
+            '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
         final author = data['authorMatricula'];
         displayInfo = '$formattedDate - $author';
       }
 
-      return {
-        ...data,
-        'displayInfo': displayInfo,
-        'status': data['status'],
-      };
+      return {...data, 'displayInfo': displayInfo, 'status': data['status']};
     } catch (e) {
       return null;
     }
@@ -476,7 +508,9 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                   errorText: errorMessage,
                 ),
                 onSubmitted: (_) async {
-                  final valid = await _validatePassword(passwordController.text);
+                  final valid = await _validatePassword(
+                    passwordController.text,
+                  );
                   if (valid) {
                     if (context.mounted) {
                       Navigator.pop(dialogContext);
@@ -520,7 +554,10 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
 
   Future<bool> _validatePassword(String password) async {
     try {
-      final comissaoDoc = await _firestore.collection('comissao').doc(widget.userMatricula).get();
+      final comissaoDoc = await _firestore
+          .collection('comissao')
+          .doc(widget.userMatricula)
+          .get();
       if (!comissaoDoc.exists) return false;
 
       final senhaComissao = comissaoDoc.data()?['senha'] ?? '';
@@ -550,7 +587,10 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
     });
   }
 
-  Future<void> _confirmarLiberacaoReavaliacao(String chapa, Map<String, dynamic> data) async {
+  Future<void> _confirmarLiberacaoReavaliacao(
+    String chapa,
+    Map<String, dynamic> data,
+  ) async {
     final passwordController = TextEditingController();
     String? errorMessage;
 
@@ -598,7 +638,10 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
                   });
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Liberar'),
             ),
           ],
@@ -613,7 +656,10 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
 
   Future<void> _liberarReavaliacao(String chapa) async {
     try {
-      final configDoc = await _firestore.collection('config').doc('general').get();
+      final configDoc = await _firestore
+          .collection('config')
+          .doc('general')
+          .get();
       final cycle = configDoc.data()?['currentCycle'] ?? '2024/2025';
       final year = cycle.split('/')[0];
       final docId = '${year}_${chapa}_AUTO';
@@ -622,14 +668,20 @@ class _AutoavaliacaoScreenState extends State<AutoavaliacaoScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Avaliação liberada com sucesso!'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Avaliação liberada com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
         );
         setState(() {}); // Recarregar lista
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao liberar avaliação: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erro ao liberar avaliação: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
