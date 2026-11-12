@@ -21,6 +21,9 @@ import '../../models/evaluation.dart';
 import '../../models/commission_president.dart';
 
 import '../../services/pdf_service.dart';
+import '../../services/excel_rh_service.dart';
+import '../../utils/progressao_helper.dart';
+import 'package:file_saver/file_saver.dart';
 
 import '../../utils/situacao_helper.dart';
 
@@ -57,6 +60,7 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
   bool _isLoading = false;
 
   List<EmployeeCycleData> _allEmployeesData = [];
+  List<Evaluation> _allEvaluations = [];
 
   List<EmployeeCycleData> _filteredEmployeesData = [];
 
@@ -214,47 +218,9 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
          final List<Evaluation> empEvaluations = [];
 
          for (var year in cycleYears) {
-            // Filter evaluations for this employee and year
-            // Evaluation ID format: {year}_{employeeId}_{type}
-            final yearlyEvals = allEvaluations.where((e) {
-                 final parts = e.id.split('_');
-                 if (parts.length < 2) return false;
-                 return parts[1] == emp.id && e.year == year;
-            }).toList();
-            
-            double? score;
-            Evaluation? bestEval;
-
-            if (yearlyEvals.isNotEmpty) {
-               // Try Manual Score first
-               final manual = yearlyEvals.where((e) => e.manualScore != null).firstOrNull;
-               if (manual != null) {
-                 score = manual.manualScore;
-                 bestEval = manual;
-               } else {
-                 // Formula = (total_auto + total_gestor) / 2
-                 // If one is missing, its total = 0 (like Anexo III)
-                 final autoEval = yearlyEvals.where((e) => e.id.contains('_AUTO')).firstOrNull;
-                 final gestorEval = yearlyEvals.where((e) => e.id.contains('_GESTOR')).firstOrNull;
-                 
-                 double autoTotal = 0;
-                 if (autoEval != null) {
-                   autoEval.answers.forEach((k, v) => autoTotal += v);
-                 }
-                 
-                 double gestorTotal = 0;
-                 if (gestorEval != null) {
-                   gestorEval.answers.forEach((k, v) => gestorTotal += v);
-                 }
-                 
-                 // Always divide by 2 (auto + gestor), matching Anexo III
-                 score = (autoTotal + gestorTotal) / 2;
-                 bestEval = gestorEval ?? autoEval;
-               }
-            }
-            
-            scores[year] = score;
-            if (bestEval != null) empEvaluations.add(bestEval);
+            final r = _calcAno(allEvaluations, emp.id, year);
+            scores[year] = r.score;
+            if (r.best != null) empEvaluations.add(r.best!);
          }
 
 
@@ -303,6 +269,7 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
 
 
 
+      _allEvaluations = allEvaluations;
       _allEmployeesData = processedData;
 
       _applyFilters();
@@ -322,6 +289,50 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
   }
 
 
+
+  /// Nota de um funcionário em um ano (mesma regra da tela e do Excel do RH):
+  /// nota manual, senão (total empregado + total gestor) / 2 como no Anexo III.
+  /// [disciplinar] é verdadeiro se alguma avaliação do ano tem ocorrência
+  /// disciplinar marcada (pendente ou já confirmada pela comissão).
+  ({double? score, Evaluation? best, bool disciplinar}) _calcAno(
+      List<Evaluation> allEvaluations, String empId, int year) {
+    final yearlyEvals = allEvaluations.where((e) {
+      final parts = e.id.split('_');
+      if (parts.length < 2) return false;
+      return parts[1] == empId && e.year == year;
+    }).toList();
+
+    final disciplinar = yearlyEvals
+        .any((e) => e.pdfData != null && e.pdfData!['ocorrenciaDisciplinar'] == true);
+
+    double? score;
+    Evaluation? bestEval;
+
+    if (yearlyEvals.isNotEmpty) {
+      final manual = yearlyEvals.where((e) => e.manualScore != null).firstOrNull;
+      if (manual != null) {
+        score = manual.manualScore;
+        bestEval = manual;
+      } else {
+        final autoEval = yearlyEvals.where((e) => e.id.contains('_AUTO')).firstOrNull;
+        final gestorEval = yearlyEvals.where((e) => e.id.contains('_GESTOR')).firstOrNull;
+
+        double autoTotal = 0;
+        if (autoEval != null) {
+          autoEval.answers.forEach((k, v) => autoTotal += v);
+        }
+
+        double gestorTotal = 0;
+        if (gestorEval != null) {
+          gestorEval.answers.forEach((k, v) => gestorTotal += v);
+        }
+
+        score = (autoTotal + gestorTotal) / 2;
+        bestEval = gestorEval ?? autoEval;
+      }
+    }
+    return (score: score, best: bestEval, disciplinar: disciplinar);
+  }
 
   void _applyFilters() {
 
@@ -474,6 +485,140 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
   }
 
 
+
+  /// Exporta para o RH todos que fecham o triênio no ano de referência, com a
+  /// coluna PROGRESSAO (sim/não) e MOTIVO. Direito à progressão (calculado na
+  /// hora, nada é gravado):
+  ///  1. o triênio fecha no ano de referência (pelo ano de admissão, base 2009);
+  ///  2. as 3 notas do triênio são maiores que 70;
+  ///  3. nenhuma avaliação do triênio tem ocorrência disciplinar.
+  Future<void> _exportarExcelRH() async {
+    final ref = _referenceYear;
+    final anos = ProgressaoHelper.anosDoTrienio(ref);
+
+    final linhas = <LinhaProgressaoRH>[];
+    final semDireito = <String>[]; // "NOME (chapa): motivo"
+    final avisos = <String>[];
+
+    for (final d in _allEmployeesData) {
+      final emp = d.employee;
+      final admAno = ProgressaoHelper.anoAdmissao(emp.admissao);
+      final rotulo = '${emp.nome} (${emp.id})';
+
+      if (admAno == null) {
+        avisos.add('$rotulo: sem data de admissão válida, não foi possível avaliar.');
+        continue;
+      }
+
+      final fechaPorAdmissao = ProgressaoHelper.progressaoNoAno(admAno, ref);
+      final start = emp.currentTrienniumStart;
+      final fechaPorStart = start != null && start + 2 == ref;
+      if (fechaPorAdmissao != fechaPorStart) {
+        avisos.add(fechaPorAdmissao
+            ? '$rotulo: pela admissão fecha o triênio em $ref, mas o início gravado é ${start ?? "vazio"}.'
+            : '$rotulo: o início gravado ($start) fecha em $ref, mas pela admissão ($admAno) não.');
+      }
+      if (!fechaPorAdmissao) continue;
+
+      final notas = <int, double>{};
+      final motivos = <String>[];
+      var disciplinar = false;
+      for (final a in anos) {
+        final r = _calcAno(_allEvaluations, emp.id, a);
+        if (r.disciplinar) disciplinar = true;
+        if (r.best == null || r.score == null) {
+          motivos.add('sem nota em $a');
+        } else {
+          notas[a] = r.score!;
+          if (r.score! <= ProgressaoHelper.notaMinima) {
+            motivos.add('nota $a = ${r.score!.toStringAsFixed(1)}');
+          }
+        }
+      }
+      if (disciplinar) motivos.add('ocorrência disciplinar');
+
+      final temDireito = motivos.isEmpty;
+      linhas.add(LinhaProgressaoRH(
+        chapa: emp.id,
+        nome: emp.nome,
+        admissao: emp.admissao,
+        funcao: emp.funcao,
+        nivel: emp.nivel,
+        faixa: emp.faixa,
+        situacao: emp.situacao,
+        notas: notas,
+        progressao: temDireito,
+        motivo: motivos.join('; '),
+      ));
+      if (!temDireito) semDireito.add('$rotulo: ${motivos.join(", ")}');
+    }
+
+    linhas.sort((a, b) => a.nome.compareTo(b.nome));
+    semDireito.sort();
+    final comDireito = linhas.where((l) => l.progressao).length;
+    avisos.sort();
+
+    if (!mounted) return;
+    final baixar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Excel para o RH - triênio ${anos.first} a ${anos.last}'),
+        content: SizedBox(
+          width: 640,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${linhas.length} pessoa(s) fecham o triênio e vão na planilha: $comDireito com direito à progressão e ${semDireito.length} sem direito (com o motivo).',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('Regra: triênio fecha em $ref (pelo ano de admissão), as 3 notas maiores que 70 e sem ocorrência disciplinar.',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                if (semDireito.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text('Sem direito à progressão (${semDireito.length}):',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  for (final c in semDireito) Text('• $c', style: const TextStyle(fontSize: 12)),
+                ],
+                if (avisos.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text('Atenção - dados divergentes (${avisos.length}):',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade800)),
+                  const SizedBox(height: 4),
+                  for (final c in avisos) Text('• $c', style: const TextStyle(fontSize: 12)),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: linhas.isEmpty ? null : () => Navigator.pop(ctx, true),
+            child: const Text('Baixar Excel'),
+          ),
+        ],
+      ),
+    );
+    if (baixar != true) return;
+
+    final bytes = ExcelRhService.gerar(linhas, anos);
+    if (bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Não foi possível gerar o Excel.')));
+      }
+      return;
+    }
+    await FileSaver.instance.saveFile(
+      name: 'Progressao_RH_${anos.first}_${anos.last}',
+      bytes: Uint8List.fromList(bytes),
+      fileExtension: 'xlsx',
+      mimeType: MimeType.microsoftExcel,
+    );
+  }
 
   Future<void> _generateBatchPDF() async {
 
@@ -813,6 +958,15 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
 
                               )
 
+                           ),
+
+                           const SizedBox(width: 16),
+
+                           OutlinedButton.icon(
+                              icon: const Icon(Icons.table_view),
+                              label: const Text('Excel RH'),
+                              onPressed: _isLoading ? null : _exportarExcelRH,
+                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16)),
                            ),
 
                            const SizedBox(width: 16),
