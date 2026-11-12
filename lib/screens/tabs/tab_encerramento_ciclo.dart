@@ -527,15 +527,19 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
           // Safe fallback: Use the COUNT of evaluations found in the cycle window.
           // This ensures that an employee with only 1 evaluation gets the Year 1 document, etc.
           
-          int cycleYear = item.evaluations.length; 
+          // Etapa = posição do ano de referência dentro do triênio do funcionário
+          // (currentTrienniumStart). Não depende de quantas avaliações existem,
+          // senão quem teve afastamento (ano sem nota) cai no anexo errado.
+          final startYear = item.cycleYears.first;
+          int cycleYear = _referenceYear - startYear + 1;
           // Clamp to 1-3 range
           if (cycleYear < 1) cycleYear = 1;
           if (cycleYear > 3) cycleYear = 3;
 
           if (cycleYear == 1) {
-              await _pdfService.buildAnexoX(pdf, item.employee, item.evaluations, _referenceYear, president: president);
+              await _pdfService.buildAnexoX(pdf, item.employee, item.evaluations, _referenceYear, president: president, startYearOverride: startYear, scoresOverride: item.scores);
           } else if (cycleYear == 2) {
-              await _pdfService.buildAnexoXI(pdf, item.employee, item.evaluations, _referenceYear, president: president);
+              await _pdfService.buildAnexoXI(pdf, item.employee, item.evaluations, _referenceYear, president: president, startYearOverride: startYear, scoresOverride: item.scores);
           } else {
               // Year 3 (Final)
               await _pdfService.buildAnexoXII(
@@ -545,7 +549,9 @@ class _TabEncerramentoCicloState extends State<TabEncerramentoCiclo> {
                 _referenceYear,
                 president: president,
                 recomendacaoResult: _resultTextController.text,
-                recomendacaoIndex: _selectedRecommendationIndex
+                recomendacaoIndex: _selectedRecommendationIndex,
+                startYearOverride: startYear,
+                scoresOverride: item.scores,
               );
           }
        }

@@ -1357,17 +1357,20 @@ class PdfService {
     List<Evaluation> evaluations,
     int currentCycleYear, {
     CommissionPresident? president,
+    int? startYearOverride,
+    Map<int, double?>? scoresOverride,
   }) async {
     // Logic: Use the ACTUAL evaluation year as the start year if available.
     // This prevents mismatch if the reference year is different from the eval year.
-    final startYear = evaluations.isNotEmpty
-        ? evaluations.first.year
-        : currentCycleYear;
+    final startYear =
+        startYearOverride ??
+        (evaluations.isNotEmpty ? evaluations.first.year : currentCycleYear);
     final years = [startYear, startYear + 1, startYear + 2];
 
     // Scores Map
-    final Map<int, double?> scores = {};
-    for (var year in years) {
+    // Se as notas já vieram calculadas (mesma regra da tela), não recalcula.
+    final Map<int, double?> scores = {...?scoresOverride};
+    for (var year in (scoresOverride != null ? <int>[] : years)) {
       try {
         final eval = evaluations.firstWhere((e) => e.year == year);
         double? score;
@@ -1560,6 +1563,8 @@ class PdfService {
     List<Evaluation> evaluations,
     int currentCycleYear, {
     CommissionPresident? president,
+    int? startYearOverride,
+    Map<int, double?>? scoresOverride,
   }) async {
     // Logic:
     // If this is Year 2, then evaluations.length should be 2 ideally.
@@ -1574,14 +1579,15 @@ class PdfService {
     final latestYear = evaluations.isNotEmpty
         ? evaluations.map((e) => e.year).reduce((a, b) => a > b ? a : b)
         : currentCycleYear;
-    final startYear = latestYear - 1; // Year 1
+    final startYear = startYearOverride ?? (latestYear - 1); // Year 1
 
     // Years to show in table: Year 1, Year 2(=Latest), Year 3
     final years = [startYear, startYear + 1, startYear + 2];
 
     // Scores Map
-    final Map<int, double?> scores = {};
-    for (var year in years) {
+    // Se as notas já vieram calculadas (mesma regra da tela), não recalcula.
+    final Map<int, double?> scores = {...?scoresOverride};
+    for (var year in (scoresOverride != null ? <int>[] : years)) {
       try {
         final eval = evaluations.firstWhere((e) => e.year == year);
         double? score;
@@ -3424,13 +3430,18 @@ class PdfService {
     CommissionPresident? president,
     String recomendacaoResult = '',
     int? recomendacaoIndex,
+    int? startYearOverride,
+    Map<int, double?>? scoresOverride,
   }) async {
     // Calculate Cycle Years
-    final startYear = employee.currentTrienniumStart ?? (currentCycleYear - 2);
+    final startYear = startYearOverride ??
+        employee.currentTrienniumStart ??
+        (currentCycleYear - 2);
     final years = [startYear, startYear + 1, startYear + 2];
 
-    final Map<int, double?> scores = {};
-    for (var year in years) {
+    // Se as notas já vieram calculadas (mesma regra da tela), não recalcula.
+    final Map<int, double?> scores = {...?scoresOverride};
+    for (var year in (scoresOverride != null ? <int>[] : years)) {
       try {
         final eval = evaluations.firstWhere((e) => e.id.startsWith('${year}_'));
         double? score;
